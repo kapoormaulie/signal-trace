@@ -23,16 +23,16 @@ const EMAIL_ROWS = [
 ];
 
 const FEATURES = [
-  { label: "Live signal detection", cls: "border-brand-300/40 text-brand-600" },
-  { label: "AI-written emails",     cls: "border-violet-300/40 text-violet-600" },
-  { label: "Apollo + Slack push",   cls: "border-emerald-300/40 text-emerald-600" },
-  { label: "Personalised LPs",      cls: "border-sky-300/40 text-sky-600" },
+  { label: "Real-time intent detection", cls: "border-brand-300/40 text-brand-600" },
+  { label: "LLM-generated copy",         cls: "border-violet-300/40 text-violet-600" },
+  { label: "Apollo sequence enrollment", cls: "border-emerald-300/40 text-emerald-600" },
+  { label: "Dynamic landing pages",      cls: "border-sky-300/40 text-sky-600" },
 ];
 
 const STEPS = [
-  { n: "1", label: "Find signal", color: "#6366F1" },
-  { n: "2", label: "Write email", color: "#8B5CF6" },
-  { n: "3", label: "Push to CRM", color: "#10B981" },
+  { n: "1", label: "Detect intent",      color: "#6366F1" },
+  { n: "2", label: "Generate outreach",  color: "#8B5CF6" },
+  { n: "3", label: "Enroll in sequence", color: "#10B981" },
 ];
 
 // ── Root ─────────────────────────────────────────────────────────────────────
@@ -85,8 +85,8 @@ export default function HeroBanner() {
               <span className="live-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-[11px] font-semibold text-emerald-600 tracking-wide uppercase">Live</span>
-            <span className="text-[11px] text-ink-3 font-medium">· Powered by Groq + Exa</span>
+            <span className="text-[11px] font-semibold text-emerald-600 tracking-wide uppercase">Signal Intelligence</span>
+            <span className="text-[11px] text-ink-3 font-medium">· Groq LLaMA 3.3 · Exa</span>
           </div>
 
           {/* Headline */}
@@ -94,15 +94,16 @@ export default function HeroBanner() {
             className="font-extrabold tracking-tight mb-5 hero-headline"
             style={{ fontSize: "clamp(2rem,4vw,3.25rem)", lineHeight: 1.1 }}
           >
-            <span className="gradient-text">Turn buying signals</span>
+            <span className="gradient-text">Signal-to-sequence</span>
             <br />
-            <span className="text-ink">into booked meetings.</span>
+            <span className="text-ink">in under 60 seconds.</span>
           </h1>
 
           {/* Sub-copy */}
           <p className="text-[15px] text-ink-3 leading-relaxed mb-7 max-w-md">
-            Surface live intent signals — funding rounds, new hires, product launches — and
-            generate hyper&#8209;personalised outreach in under 60 seconds.
+            SignalTrace monitors the open web for live buying intent — Series raises, leadership
+            changes, product launches — then autonomously drafts personalized outreach and
+            enrolls each prospect directly into your Apollo sequence.
           </p>
 
           {/* 3-step flow */}
@@ -210,7 +211,7 @@ function PhaseList({ rows }: { rows: number }) {
           <path d="M9.5 9.5L12 12" stroke="#6366F1" strokeWidth="1.4" strokeLinecap="round" />
         </svg>
         <span className="text-xs font-semibold text-ink-2">
-          Finding prospects at{" "}
+          Scanning decision-makers at{" "}
           <span className="text-brand-500">Stripe</span>
         </span>
         <span className="ml-auto">
@@ -267,7 +268,7 @@ function PhaseSignal() {
         >
           ⚡
         </span>
-        <span className="text-xs font-semibold text-ink-2">Signal detected</span>
+        <span className="text-xs font-semibold text-ink-2">Intent signal detected</span>
         <span
           className="ml-auto text-[10px] text-amber-600 font-semibold px-2 py-0.5 rounded-full"
           style={{ background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.30)" }}
@@ -295,7 +296,7 @@ function PhaseSignal() {
           </div>
         </div>
         <p className="text-[11px] text-ink-3 leading-relaxed mb-2">
-          Expansion pressure post&#8209;raise — optimal timing for outreach.
+          Post-raise expansion pressure — high-intent window for outbound.
         </p>
         <div className="flex items-center gap-2">
           <span
@@ -343,7 +344,7 @@ function PhaseEmail({ lines }: { lines: number }) {
           <rect x="1" y="1" width="11" height="9" rx="1.2" stroke="#7C3AED" strokeWidth="1.3" />
           <path d="M1.5 2L6.5 6.5L11.5 2" stroke="#7C3AED" strokeWidth="1.3" strokeLinecap="round" />
         </svg>
-        <span className="text-xs font-semibold text-ink-2">Writing email…</span>
+        <span className="text-xs font-semibold text-ink-2">Synthesizing outreach…</span>
         <span className="ml-auto w-3 h-3 border-[1.5px] border-violet-200 border-t-violet-500 rounded-full animate-spin" />
       </div>
 
@@ -399,7 +400,7 @@ function PhaseLaunch({ launched }: { launched: boolean }) {
         >
           ✓
         </span>
-        <span className="text-xs font-semibold text-ink-2">Pushed to Apollo + Slack</span>
+        <span className="text-xs font-semibold text-ink-2">Enrolled in Apollo sequence</span>
         <span className="ml-auto text-[10px] text-emerald-500 font-bold success-pop">Sent!</span>
       </div>
 
@@ -416,7 +417,7 @@ function PhaseLaunch({ launched }: { launched: boolean }) {
         ) : (
           <div className="flex flex-col items-center gap-1 success-pop">
             <span style={{ fontSize: "26px" }}>✨</span>
-            <p className="text-[11px] font-semibold text-emerald-500">Lead delivered!</p>
+            <p className="text-[11px] font-semibold text-emerald-500">Prospect enrolled.</p>
           </div>
         )}
       </div>
