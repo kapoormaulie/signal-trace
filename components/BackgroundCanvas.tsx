@@ -35,14 +35,14 @@ const BEAMS = [
 ];
 
 const RINGS = [
-  { cx: "8%",  cy: "18%", w: 240, h: 240, dur: "58s",  color: "rgba(99,102,241,0.08)",  delay: "0s"  },
-  { cx: "90%", cy: "80%", w: 320, h: 320, dur: "78s",  color: "rgba(124,58,237,0.065)", delay: "10s" },
-  { cx: "50%", cy: "50%", w: 460, h: 150, dur: "48s",  color: "rgba(79,70,229,0.055)",  delay: "5s"  },
-  { cx: "20%", cy: "76%", w: 200, h: 200, dur: "68s",  color: "rgba(139,92,246,0.07)",  delay: "15s" },
-  { cx: "78%", cy: "24%", w: 280, h: 280, dur: "52s",  color: "rgba(99,102,241,0.06)",  delay: "8s"  },
-  { cx: "50%", cy: "12%", w: 400, h: 110, dur: "38s",  color: "rgba(6,182,212,0.05)",   delay: "12s" },
-  { cx: "35%", cy: "62%", w: 220, h: 220, dur: "85s",  color: "rgba(79,70,229,0.045)",  delay: "3s"  },
-  { cx: "85%", cy: "46%", w: 170, h: 170, dur: "44s",  color: "rgba(165,180,252,0.07)", delay: "18s" },
+  { cx: "8%",  cy: "18%", w: 240, h: 240, dur: "58s",  color: "rgba(99,102,241,0.20)",  delay: "0s"  },
+  { cx: "90%", cy: "80%", w: 320, h: 320, dur: "78s",  color: "rgba(124,58,237,0.17)",  delay: "10s" },
+  { cx: "50%", cy: "50%", w: 460, h: 150, dur: "48s",  color: "rgba(79,70,229,0.14)",   delay: "5s"  },
+  { cx: "20%", cy: "76%", w: 200, h: 200, dur: "68s",  color: "rgba(139,92,246,0.18)",  delay: "15s" },
+  { cx: "78%", cy: "24%", w: 280, h: 280, dur: "52s",  color: "rgba(99,102,241,0.15)",  delay: "8s"  },
+  { cx: "50%", cy: "12%", w: 400, h: 110, dur: "38s",  color: "rgba(6,182,212,0.13)",   delay: "12s" },
+  { cx: "35%", cy: "62%", w: 220, h: 220, dur: "85s",  color: "rgba(79,70,229,0.12)",   delay: "3s"  },
+  { cx: "85%", cy: "46%", w: 170, h: 170, dur: "44s",  color: "rgba(165,180,252,0.22)", delay: "18s" },
 ];
 
 export default function BackgroundCanvas() {
@@ -53,20 +53,20 @@ export default function BackgroundCanvas() {
       aria-hidden
     >
       {/* Fine line grid */}
-      <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.045 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full st-grid" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="st-line-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--ink-2)" strokeWidth="0.5"/>
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--ink-2)" strokeWidth="0.6"/>
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#st-line-grid)" />
       </svg>
 
       {/* Dot accent overlay */}
-      <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.04 }} xmlns="http://www.w3.org/2000/svg">
+      <svg className="absolute inset-0 w-full h-full st-dots" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <pattern id="st-dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-            <circle cx="20" cy="20" r="1" fill="var(--ink-2)" />
+            <circle cx="20" cy="20" r="1.2" fill="var(--ink-2)" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#st-dots)" />
