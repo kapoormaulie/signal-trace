@@ -26,12 +26,41 @@ export interface GenerationResult {
   landingPageContent: LandingPageContent;
 }
 
+export interface LpMetric {
+  label: string;
+  value: string;
+  tag: "live" | "opportunity" | "action";
+}
+export interface LpProblem  { icon: string; title: string; description: string; }
+export interface LpStep     { title: string; description: string; timing?: string; }
+export interface LpFeature  { icon: string; title: string; description: string; }
+export interface LpStat     { value: string; label: string; }
+export interface LpTestimonial { text: string; name: string; role: string; initials: string; }
+
 export interface LandingPageContent {
+  // Core (always present)
   headline: string;
   subheadline: string;
   body: string;
   ctaText: string;
   ctaUrl?: string;
+  // Rich content — present on new LPs, undefined on old ones
+  senderCompany?: string;
+  heroStat?: string;
+  heroStatLabel?: string;
+  heroStatSub?: string;
+  heroMetrics?: LpMetric[];
+  tickerItems?: string[];
+  stats?: LpStat[];
+  problemHeadline?: string;
+  problems?: LpProblem[];
+  stepsHeadline?: string;
+  steps?: LpStep[];
+  featuresHeadline?: string;
+  features?: LpFeature[];
+  testimonials?: LpTestimonial[];
+  ctaHeadline?: string;
+  ctaSub?: string;
 }
 
 export interface ProspectRecord {

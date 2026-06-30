@@ -63,15 +63,64 @@ ${signalBlock}
   },
   "angleReasoning": "2-3 sentences: why this signal angle connects to a real pain or goal this prospect likely has, and why it makes this email relevant to open.",
   "landingPageContent": {
-    "headline": "Personalized headline for ${prospect.company}${sender.senderCompany ? ` — reference how ${sender.senderCompany} can help them` : ""}. Reference the signal or their company directly.",
-    "subheadline": "One sentence: the core value ${sender.senderCompany || "you"} deliver for companies like ${prospect.company}.",
-    "body": "3-4 sentences of tailored value prop written specifically for ${prospect.company}. Reference the signal or their company context. Mention ${sender.senderCompany || "your company"} naturally. No generic filler.",
+    "senderCompany": "${sender.senderCompany || ""}",
+    "headline": "Start with ${firstName}: one punchy sentence naming a specific opportunity or risk for ${prospect.company} right now, tied to the signal. E.g. '${firstName}, here's the window [signal event] just opened for ${prospect.company}.'",
+    "subheadline": "One sentence: what ${sender.senderCompany || "we"} specifically deliver for companies in this exact situation.",
+    "body": "2-3 sentences of tailored hero copy for ${prospect.company}. Name the signal, name the stakes, say what ${sender.senderCompany || "we"} do about it. No generic filler.",
     "ctaText": "Book a 20-min call${sender.senderName ? ` with ${sender.senderName}` : ""}",
-    "ctaUrl": ""
+    "ctaUrl": "",
+    "heroStat": "A specific, credible number relevant to the opportunity — pipeline value, time savings, percentage gain. E.g. '$2.4M', '73%', '6 weeks'. Make it real and plausible for ${prospect.company}'s scale.",
+    "heroStatLabel": "3-6 words naming what the stat represents. E.g. 'pipeline from this signal window'.",
+    "heroStatSub": "One sentence: where this number comes from or why it applies to ${prospect.company}.",
+    "heroMetrics": [
+      { "label": "Signal detected", "value": "FILL WITH 3-WORD SUMMARY OF SIGNAL", "tag": "live" },
+      { "label": "Opportunity window", "value": "FILL WITH TIME WINDOW E.G. 'Next 3 weeks'", "tag": "opportunity" },
+      { "label": "Recommended action", "value": "FILL WITH SPECIFIC ACTION E.G. 'Schedule discovery call'", "tag": "action" }
+    ],
+    "tickerItems": [
+      "SPECIFIC STAT 1 with number",
+      "SPECIFIC STAT 2 with number",
+      "SPECIFIC STAT 3 with number",
+      "SPECIFIC STAT 4 with number",
+      "SPECIFIC STAT 5 with number",
+      "SPECIFIC STAT 6 with number"
+    ],
+    "stats": [
+      { "value": "FILL", "label": "FILL — specific, believable metric for ${sender.senderCompany || "this solution"}" },
+      { "value": "FILL", "label": "FILL" },
+      { "value": "FILL", "label": "FILL" },
+      { "value": "FILL", "label": "FILL" }
+    ],
+    "problemHeadline": "The real challenge ${prospect.company} is navigating right now — and why the timing matters",
+    "problems": [
+      { "icon": "📊", "title": "FILL with specific pain title", "description": "2 sentences — specific to ${prospect.company} context and the signal. Reference ${firstName} or ${prospect.company} by name." },
+      { "icon": "⏳", "title": "FILL", "description": "2 sentences specific to their situation." },
+      { "icon": "🤝", "title": "FILL", "description": "2 sentences." },
+      { "icon": "🔄", "title": "FILL", "description": "2 sentences." }
+    ],
+    "stepsHeadline": "How ${sender.senderCompany || "we"} help ${prospect.company} move fast — without the usual friction",
+    "steps": [
+      { "title": "FILL — step 1 title", "description": "2 sentences: what happens, why it's fast for ${prospect.company}.", "timing": "Day 1" },
+      { "title": "FILL — step 2 title", "description": "2 sentences.", "timing": "Week 1" },
+      { "title": "FILL — step 3 title", "description": "2 sentences.", "timing": "Ongoing" }
+    ],
+    "featuresHeadline": "What ${sender.senderCompany || "we"} delivers for teams like ${prospect.company}",
+    "features": [
+      { "icon": "⚡", "title": "FILL feature title", "description": "2 sentences specific to their use case." },
+      { "icon": "🔌", "title": "FILL", "description": "2 sentences." },
+      { "icon": "✅", "title": "FILL", "description": "2 sentences." },
+      { "icon": "📈", "title": "FILL", "description": "2 sentences." }
+    ],
+    "testimonials": [
+      { "text": "FILL — 2 sentence testimonial about a specific outcome similar to what ${prospect.company} needs. Sound real, not generic.", "name": "FILL First Last", "role": "FILL VP/Director of Something", "initials": "FL" },
+      { "text": "FILL — another specific testimonial from a different angle.", "name": "FILL First Last", "role": "FILL role", "initials": "FL" }
+    ],
+    "ctaHeadline": "Ready to talk, ${firstName}?",
+    "ctaSub": "Book 20 minutes with ${sender.senderName || sender.senderCompany || "our team"}. We'll walk through exactly how this applies to ${prospect.company} — no deck, no sales pitch."
   }
 }
 
-IMPORTANT: Always output ctaUrl as an empty string exactly: "ctaUrl": "". Never invent or guess a URL.
+IMPORTANT: Always output ctaUrl as an empty string. Replace every FILL placeholder with real, specific content. Make all numbers and claims believable for ${prospect.company}'s context.
 
 Score definitions (all 1-10, integer):
 - personalization: how specific is this email to THIS prospect vs. a generic contact?
@@ -90,7 +139,7 @@ export async function generateEmail(
 
   const response = await groq().chat.completions.create({
     model: MODEL,
-    max_tokens: 2048,
+    max_tokens: 4096,
     temperature: 0.7,
     response_format: { type: "json_object" },
     messages: [
@@ -120,6 +169,7 @@ export async function generateEmail(
 
   // Always use the sender's defaultCtaUrl — never trust the model to generate one
   result.landingPageContent.ctaUrl = sender.defaultCtaUrl ?? "";
+  result.landingPageContent.senderCompany = sender.senderCompany;
 
   return result;
 }
