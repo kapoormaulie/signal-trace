@@ -704,6 +704,52 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", position: "relative" }}>
+
+      {/* ── Full-screen overlay for Sender profile / Integrations ── */}
+      {(tab === "settings" || tab === "integrations") && settingsLoaded && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col overlay-in"
+          style={{ background: "var(--background)" }}
+        >
+          {/* Overlay header */}
+          <div
+            className="sticky top-0 z-10 flex items-center h-14 px-6 border-b shrink-0"
+            style={{
+              background: "var(--header-bg)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              borderColor: "var(--header-border)",
+            }}
+          >
+            <button
+              onClick={() => { setTab("single"); setState(INITIAL); }}
+              className="flex items-center gap-2 text-sm font-medium text-ink-3 hover:text-ink transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Back
+            </button>
+            <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-ink">
+              {tab === "settings" ? "Sender profile" : "Integrations"}
+            </span>
+          </div>
+
+          {/* Overlay scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto px-6 py-10">
+              <SettingsBar
+                settings={settings}
+                onSave={(patch) => { saveSettings(patch); setTab("single"); }}
+                isConfigured={isConfigured}
+                forceOpen
+                showSection={tab === "settings" ? "profile" : "integrations"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Animated background ─────────────────────────────── */}
       <BackgroundCanvas />
 
@@ -771,49 +817,7 @@ export default function HomePage() {
           {/* Hero — always visible at the top */}
           <HeroBanner />
 
-          {/* ── SETTINGS ─────────────────────────────────── */}
-          {tab === "settings" && settingsLoaded && (
-            <>
-              <button
-                onClick={() => { setTab("single"); setState(INITIAL); }}
-                className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors mb-4"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Back
-              </button>
-              <SettingsBar
-                settings={settings}
-                onSave={(patch) => { saveSettings(patch); setTab("single"); }}
-                isConfigured={isConfigured}
-                forceOpen
-                showSection="profile"
-              />
-            </>
-          )}
-
-          {/* ── INTEGRATIONS ──────────────────────────────── */}
-          {tab === "integrations" && settingsLoaded && (
-            <>
-              <button
-                onClick={() => { setTab("single"); setState(INITIAL); }}
-                className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors mb-4"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Back
-              </button>
-              <SettingsBar
-                settings={settings}
-                onSave={(patch) => { saveSettings(patch); setTab("single"); }}
-                isConfigured={isConfigured}
-                forceOpen
-                showSection="integrations"
-              />
-            </>
-          )}
+          {/* inline setup panels removed — handled by full-screen overlay below */}
 
           {/* Mode switcher + content — only visible when not on a setup tab */}
           {(tab === "single" || tab === "bulk") && (
