@@ -125,7 +125,7 @@ function TabBar({
   const TABS: { id: PageTab; label: string }[] = [
     { id: "single",   label: "Single prospect" },
     { id: "bulk",     label: "Bulk generate"   },
-    { id: "settings", label: "Settings"        },
+    { id: "settings", label: "Set up sender profile" },
   ];
 
   return (
