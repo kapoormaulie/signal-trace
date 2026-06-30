@@ -32,6 +32,8 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
   const [tab, setTab] = useState<"profile" | "integrations">(showSection ?? "profile");
   const [draft, setDraft] = useState(settings);
   const [showWhy, setShowWhy] = useState(false);
+  const [showApolloWhat, setShowApolloWhat] = useState(false);
+  const [showSlackWhat, setShowSlackWhat] = useState(false);
 
   if (!open && draft.senderCompany !== settings.senderCompany) {
     setDraft(settings);
@@ -244,19 +246,40 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
               <StatusDot connected={apolloConnected} />
             </div>
 
-            <div className="grid grid-cols-5 gap-3 mb-3">
-              {[
-                { icon: "👤", text: "Creates contact in your Apollo account" },
-                { icon: "📋", text: "Enrols them in your outbound sequence" },
-                { icon: "📧", text: "Enriches missing email addresses" },
-                { icon: "📊", text: "Tracks opens and replies in Apollo" },
-                { icon: "🔄", text: "Syncs back to your existing CRM" },
-              ].map((item) => (
-                <div key={item.text} className="flex gap-1.5 items-start">
-                  <span className="text-sm shrink-0">{item.icon}</span>
-                  <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+            {/* What Apollo does — collapsible */}
+            <div className="rounded-lg border border-[var(--input-border)] overflow-hidden mb-3">
+              <button
+                onClick={() => setShowApolloWhat((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--surface)] transition-colors"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-3">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+                    <path d="M6 5.5v2.5M6 4h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                  What this does
+                </span>
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+                  className={`text-ink-4 transition-transform duration-200 ${showApolloWhat ? "rotate-180" : ""}`}>
+                  <path d="M2 3.5L5.5 7L9 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              {showApolloWhat && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--input-border)] grid grid-cols-5 gap-2.5 bg-[var(--surface)]">
+                  {[
+                    { icon: "👤", text: "Creates contact in your Apollo account" },
+                    { icon: "📋", text: "Enrols them in your outbound sequence" },
+                    { icon: "📧", text: "Enriches missing email addresses" },
+                    { icon: "📊", text: "Tracks opens and replies in Apollo" },
+                    { icon: "🔄", text: "Syncs back to your existing CRM" },
+                  ].map((item) => (
+                    <div key={item.text} className="flex gap-1.5 items-start pt-1.5">
+                      <span className="text-sm shrink-0">{item.icon}</span>
+                      <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="flex gap-3 items-end">
@@ -297,18 +320,39 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
               <StatusDot connected={slackConnected} />
             </div>
 
-            <div className="grid grid-cols-4 gap-3 mb-3">
-              {[
-                { icon: "🔔", text: "Instant push notification when a lead is sent" },
-                { icon: "📈", text: "Shows quality scores (P·C·CTA) in the message" },
-                { icon: "🔗", text: "Links directly to the prospect's landing page" },
-                { icon: "👥", text: "Keeps your whole team in the loop on outbound" },
-              ].map((item) => (
-                <div key={item.text} className="flex gap-1.5 items-start">
-                  <span className="text-sm shrink-0">{item.icon}</span>
-                  <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+            {/* What Slack does — collapsible */}
+            <div className="rounded-lg border border-[var(--input-border)] overflow-hidden mb-3">
+              <button
+                onClick={() => setShowSlackWhat((v) => !v)}
+                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--surface)] transition-colors"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-3">
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+                    <path d="M6 5.5v2.5M6 4h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                  What this does
+                </span>
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+                  className={`text-ink-4 transition-transform duration-200 ${showSlackWhat ? "rotate-180" : ""}`}>
+                  <path d="M2 3.5L5.5 7L9 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              {showSlackWhat && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--input-border)] grid grid-cols-4 gap-2.5 bg-[var(--surface)]">
+                  {[
+                    { icon: "🔔", text: "Instant push notification when a lead is sent" },
+                    { icon: "📈", text: "Shows quality scores (P·C·CTA) in the message" },
+                    { icon: "🔗", text: "Links directly to the prospect's landing page" },
+                    { icon: "👥", text: "Keeps your whole team in the loop on outbound" },
+                  ].map((item) => (
+                    <div key={item.text} className="flex gap-1.5 items-start pt-1.5">
+                      <span className="text-sm shrink-0">{item.icon}</span>
+                      <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
             <div className="flex gap-3 items-end">
