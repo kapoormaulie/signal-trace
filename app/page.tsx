@@ -112,8 +112,8 @@ async function apiFetch<T>(url: string, body: unknown): Promise<T> {
   return data as T;
 }
 
-// ─── TabBar ──────────────────────────────────────────────────────────────────
-function TabBar({
+// ─── SetupTabBar — only shows the admin/setup tabs ───────────────────────────
+function SetupTabBar({
   tab,
   onChange,
   showSettingsBadge,
@@ -125,8 +125,6 @@ function TabBar({
   showIntegrationsBadge?: boolean;
 }) {
   const TABS: { id: PageTab; label: string }[] = [
-    { id: "single",       label: "Single prospect"       },
-    { id: "bulk",         label: "Bulk generate"         },
     { id: "settings",     label: "Set up sender profile" },
     { id: "integrations", label: "Integrations"          },
   ];
@@ -136,7 +134,7 @@ function TabBar({
       {TABS.map(({ id, label }) => (
         <button
           key={id}
-          onClick={() => onChange(id)}
+          onClick={() => onChange(id === tab ? "single" : id)}
           className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
             tab === id
               ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
@@ -144,16 +142,37 @@ function TabBar({
           }`}
         >
           {label}
-          {id === "settings" && showSettingsBadge && (
+          {id === "settings" && showSettingsBadge && tab !== "settings" && (
             <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
               Recommended
             </span>
           )}
-          {id === "integrations" && showIntegrationsBadge && (
+          {id === "integrations" && showIntegrationsBadge && tab !== "integrations" && (
             <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
               Required
             </span>
           )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── ModeSwitcher — single vs bulk, lives inside the content area ─────────────
+function ModeSwitcher({ tab, onChange }: { tab: PageTab; onChange: (t: "single" | "bulk") => void }) {
+  return (
+    <div className="flex items-center gap-1 p-1 rounded-xl w-fit border border-[var(--input-border)] bg-[var(--input-bg)] mb-5">
+      {(["single", "bulk"] as const).map((m) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+            tab === m
+              ? "dark-tab-active bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
+              : "text-ink-3 hover:text-ink-2"
+          }`}
+        >
+          {m === "single" ? "Single prospect" : "Bulk generate"}
         </button>
       ))}
     </div>
@@ -684,16 +703,13 @@ export default function HomePage() {
         {/* ── Main content ──────────────────────────────────── */}
         <main className="max-w-4xl mx-auto px-6 py-8">
 
-          {/* Tabs */}
-          <TabBar
+          {/* Setup tab bar — settings + integrations only */}
+          <SetupTabBar
             tab={tab}
             onChange={(t) => { setTab(t); setState(INITIAL); }}
             showSettingsBadge={!isConfigured}
             showIntegrationsBadge={!settings.apolloApiKey}
           />
-
-          {/* ── BULK ─────────────────────────────────────── */}
-          {tab === "bulk" && <BulkSection settings={settings} />}
 
           {/* ── SETTINGS ─────────────────────────────────── */}
           {tab === "settings" && settingsLoaded && (
@@ -715,6 +731,19 @@ export default function HomePage() {
               forceOpen
               showSection="integrations"
             />
+          )}
+
+          {/* Mode switcher + content — only visible when not on a setup tab */}
+          {(tab === "single" || tab === "bulk") && (
+            <>
+              <ModeSwitcher
+                tab={tab}
+                onChange={(m) => { setTab(m); setState(INITIAL); }}
+              />
+
+              {/* ── BULK ─────────────────────────────────────── */}
+              {tab === "bulk" && <BulkSection settings={settings} />}
+            </>
           )}
 
           {/* ── SINGLE ───────────────────────────────────── */}
