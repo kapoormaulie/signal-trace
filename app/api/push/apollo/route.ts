@@ -5,6 +5,7 @@ import { log } from "@/lib/logger";
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const prospect = body?.prospect;
+  const apolloApiKey: string | undefined = body?.apolloApiKey || undefined;
 
   if (!prospect?.name || !prospect?.company) {
     return NextResponse.json({ error: "prospect name and company are required" }, { status: 400 });
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     // If no email provided, try Apollo's people/match to find one
     let email: string | undefined = prospect.email;
     if (!email) {
-      const matched = await matchPersonInApollo(firstName, lastName, prospect.company, prospect.linkedinUrl).catch(() => null);
+      const matched = await matchPersonInApollo(firstName, lastName, prospect.company, prospect.linkedinUrl, apolloApiKey).catch(() => null);
       if (matched?.email) {
         email = matched.email;
         log(`push/apollo | email found via Apollo match: ${email}`);
@@ -33,12 +34,12 @@ export async function POST(req: NextRequest) {
       companyName: prospect.company,
       title: prospect.title,
       linkedinUrl: prospect.linkedinUrl,
-    });
+    }, apolloApiKey);
 
     // Enroll in sequence if APOLLO_SEQUENCE_ID is set
     const sequenceId = process.env.APOLLO_SEQUENCE_ID;
     if (sequenceId && contactId) {
-      await addContactToSequence(contactId, sequenceId).catch((err) => {
+      await addContactToSequence(contactId, sequenceId, apolloApiKey).catch((err) => {
         log(`push/apollo | sequence enroll failed (non-fatal): ${err.message}`);
       });
     }

@@ -6,8 +6,8 @@ export interface SlackSummaryPayload {
   lpUrl: string;
 }
 
-export async function postToSlack(payload: SlackSummaryPayload): Promise<void> {
-  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+export async function postToSlack(payload: SlackSummaryPayload, webhookOverride?: string): Promise<void> {
+  const webhookUrl = webhookOverride || process.env.SLACK_WEBHOOK_URL;
   if (!webhookUrl) throw new Error("SLACK_WEBHOOK_URL is not set");
 
   const { prospectName, company, signalUsed, scores, lpUrl } = payload;

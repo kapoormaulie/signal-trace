@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
     const signalUsed: string = body?.signalUsed ?? "";
     const scores: QualityScores = body?.scores;
     const lpUrl: string = body?.lpUrl;
+    const slackWebhookUrl: string | undefined = body?.slackWebhookUrl || undefined;
 
     if (!prospectName || !company) {
       return NextResponse.json(
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await postToSlack({ prospectName, company, signalUsed, scores, lpUrl });
+    await postToSlack({ prospectName, company, signalUsed, scores, lpUrl }, slackWebhookUrl);
 
     log(`Slack push success: ${prospectName} @ ${company}`);
     return NextResponse.json({ success: true });

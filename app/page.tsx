@@ -75,6 +75,7 @@ interface AppState {
   instantlyStatus: PushStatus;
   slackStatus: PushStatus;
   error: string | null;
+  regenerating: boolean;
 }
 
 const INITIAL: AppState = {
@@ -82,7 +83,7 @@ const INITIAL: AppState = {
   signals: [], noSignals: false, duplicate: null, dupDismissed: false,
   selectedSignal: null, generation: null, editedEmailBody: "",
   editedLpContent: null, selectedSubjectIdx: 0, lpUrl: "", lpSlug: "",
-  instantlyStatus: "idle", slackStatus: "idle", error: null,
+  instantlyStatus: "idle", slackStatus: "idle", error: null, regenerating: false,
 };
 
 const ROLE_LABELS: Record<TargetRole, string> = {
@@ -566,6 +567,27 @@ export default function HomePage() {
     }
   }
 
+  async function handleRegenerate() {
+    const { prospect, selectedSignal, lpSlug } = state;
+    if (!prospect) return;
+    update({ regenerating: true, error: null });
+    try {
+      const { result } = await apiFetch<{ result: GenerationResult }>("/api/generate", {
+        prospect, signal: selectedSignal,
+        senderCompany: settings.senderCompany,
+        senderName: settings.senderName,
+        defaultCtaUrl: settings.defaultCtaUrl,
+      });
+      const { url: lpUrl } = await apiFetch<{ slug: string; url: string }>("/api/lp", {
+        slug: lpSlug, content: result.landingPageContent,
+      });
+      const emailBody = result.emailBody.replace(/\[LP_URL\]/g, lpUrl);
+      update({ generation: { ...result, emailBody }, editedEmailBody: emailBody, editedLpContent: result.landingPageContent, selectedSubjectIdx: 0, lpUrl, regenerating: false });
+    } catch (err) {
+      update({ regenerating: false, error: err instanceof Error ? err.message : "Regeneration failed" });
+    }
+  }
+
   async function handlePush() {
     const { prospect, generation, editedEmailBody, editedLpContent, selectedSubjectIdx, lpUrl, lpSlug, selectedSignal } = state;
     if (!prospect || !generation) return;
@@ -575,8 +597,8 @@ export default function HomePage() {
       await fetch("/api/lp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: lpSlug, content: editedLpContent }) }).catch(() => {});
     }
     const [instOk, slackOk] = await Promise.all([
-      fetch("/api/push/apollo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospect, emailBody: editedEmailBody, subjectLine, lpUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
-      fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
+      fetch("/api/push/apollo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospect, emailBody: editedEmailBody, subjectLine, lpUrl, apolloApiKey: settings.apolloApiKey || undefined }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
+      fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl, slackWebhookUrl: settings.slackWebhookUrl || undefined }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
     ]);
     update({ instantlyStatus: instOk ? "success" : "error", slackStatus: slackOk ? "success" : "error" });
     fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, emailBody: editedEmailBody, subjectLine, lpSlug, lpUrl, scores: generation.scores, signalUsed: selectedSignal?.title, contactedAt: new Date().toISOString(), lpVisits: [], pushed: instOk && slackOk }) }).catch(() => {});
@@ -600,7 +622,7 @@ export default function HomePage() {
   }
 
   const { stage, prospect, lookupCompany, people, signals, noSignals, duplicate, dupDismissed,
-    generation, editedEmailBody, editedLpContent, selectedSubjectIdx, lpUrl, instantlyStatus, slackStatus, error } = state;
+    generation, editedEmailBody, editedLpContent, selectedSubjectIdx, lpUrl, instantlyStatus, slackStatus, error, regenerating } = state;
   const isReviewing = stage === "review" || stage === "pushing";
 
   return (
@@ -789,6 +811,8 @@ export default function HomePage() {
                       lpContent={editedLpContent ?? generation.landingPageContent}
                       onLpContentChange={(v) => update({ editedLpContent: v })}
                       lpUrl={lpUrl}
+                      onRegenerate={handleRegenerate}
+                      regenerating={regenerating}
                     />
                   </div>
 

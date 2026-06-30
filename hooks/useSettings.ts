@@ -6,10 +6,18 @@ export interface UserSettings {
   senderCompany: string;
   senderName: string;
   defaultCtaUrl: string;
+  apolloApiKey: string;
+  slackWebhookUrl: string;
 }
 
 const KEY = "signaltrace_settings";
-const EMPTY: UserSettings = { senderCompany: "", senderName: "", defaultCtaUrl: "" };
+const EMPTY: UserSettings = {
+  senderCompany: "",
+  senderName: "",
+  defaultCtaUrl: "",
+  apolloApiKey: "",
+  slackWebhookUrl: "",
+};
 
 export function useSettings() {
   const [settings, setSettings] = useState<UserSettings>(EMPTY);
@@ -18,7 +26,7 @@ export function useSettings() {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) setSettings(JSON.parse(raw));
+      if (raw) setSettings({ ...EMPTY, ...JSON.parse(raw) });
     } catch {}
     setLoaded(true);
   }, []);

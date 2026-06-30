@@ -15,19 +15,22 @@ export interface MatchedPerson {
   apolloId: string | null;
 }
 
-// Look up a person's email in Apollo's database before creating the contact
+function getKey(override?: string): string {
+  const key = override || process.env.APOLLO_API_KEY;
+  if (!key) throw new Error("APOLLO_API_KEY not set");
+  return key;
+}
+
 export async function matchPersonInApollo(
   firstName: string,
   lastName: string,
   companyName: string,
-  linkedinUrl?: string
+  linkedinUrl?: string,
+  apiKey?: string
 ): Promise<MatchedPerson> {
-  const apiKey = process.env.APOLLO_API_KEY;
-  if (!apiKey) throw new Error("APOLLO_API_KEY not set");
-
   const res = await fetch(`${APOLLO_BASE}/people/match`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
+    headers: { "Content-Type": "application/json", "X-Api-Key": getKey(apiKey) },
     body: JSON.stringify({
       first_name: firstName,
       last_name: lastName,
@@ -48,13 +51,10 @@ export async function matchPersonInApollo(
   };
 }
 
-export async function addContactToApollo(payload: ApolloPayload): Promise<string> {
-  const apiKey = process.env.APOLLO_API_KEY;
-  if (!apiKey) throw new Error("APOLLO_API_KEY not set");
-
+export async function addContactToApollo(payload: ApolloPayload, apiKey?: string): Promise<string> {
   const res = await fetch(`${APOLLO_BASE}/contacts`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
+    headers: { "Content-Type": "application/json", "X-Api-Key": getKey(apiKey) },
     body: JSON.stringify({
       first_name: payload.firstName,
       last_name: payload.lastName,
@@ -76,16 +76,14 @@ export async function addContactToApollo(payload: ApolloPayload): Promise<string
 
 export async function addContactToSequence(
   contactId: string,
-  sequenceId: string
+  sequenceId: string,
+  apiKey?: string
 ): Promise<void> {
-  const apiKey = process.env.APOLLO_API_KEY;
-  if (!apiKey) throw new Error("APOLLO_API_KEY not set");
-
   const res = await fetch(
     `${APOLLO_BASE}/emailer_campaigns/${sequenceId}/add_contact_ids`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
+      headers: { "Content-Type": "application/json", "X-Api-Key": getKey(apiKey) },
       body: JSON.stringify({ contact_ids: [contactId] }),
     }
   );
