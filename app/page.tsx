@@ -768,7 +768,7 @@ export default function HomePage() {
 
         {/* ── Sticky header ─────────────────────────────────── */}
         <header
-          className="sticky top-0 z-40 border-b transition-colors"
+          className="sticky top-0 z-40 border-b transition-colors relative"
           style={{
             background: "var(--header-bg)",
             backdropFilter: "blur(20px)",
