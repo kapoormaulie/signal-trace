@@ -8,7 +8,9 @@ type PushStatus = "idle" | "loading" | "success" | "error";
 interface Props {
   scores: QualityScores;
   ctaUrl?: string;
+  apolloApiKey?: string;
   onPush: () => void;
+  onOpenIntegrations?: () => void;
   instantlyStatus: PushStatus;
   slackStatus: PushStatus;
   onRetryInstantly: () => void;
@@ -25,7 +27,9 @@ const DIM_LABELS: Record<keyof QualityScores, string> = {
 export default function PushButton({
   scores,
   ctaUrl,
+  apolloApiKey,
   onPush,
+  onOpenIntegrations,
   instantlyStatus,
   slackStatus,
   onRetryInstantly,
@@ -39,12 +43,39 @@ export default function PushButton({
   );
   const needsAck = lowDims.length > 0;
   const noCtaUrl = !ctaUrl?.trim();
-  const canPush = (!needsAck || acknowledged) && (!noCtaUrl || ctaAcknowledged);
+  const noApolloKey = !apolloApiKey?.trim();
+  const canPush = !noApolloKey && (!needsAck || acknowledged) && (!noCtaUrl || ctaAcknowledged);
   const isPushing = instantlyStatus === "loading" || slackStatus === "loading";
   const hasPushed = instantlyStatus !== "idle" || slackStatus !== "idle";
 
   return (
     <div className="space-y-3">
+      {/* Apollo API key missing — hard block */}
+      {noApolloKey && !hasPushed && (
+        <div className="rounded-xl border border-red-400/50 bg-[rgba(239,68,68,0.06)] px-4 py-3.5">
+          <div className="flex items-start gap-3">
+            <svg className="shrink-0 mt-0.5 text-red-500" width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-500 mb-0.5">Apollo API key not configured</p>
+              <p className="text-xs text-red-400/80 leading-relaxed mb-3">
+                Without an API key, this lead will not be pushed to your Apollo account or enrolled in any sequence. Add your key in Integrations to enable CRM push.
+              </p>
+              {onOpenIntegrations && (
+                <button
+                  onClick={onOpenIntegrations}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 border border-red-400/50 hover:border-red-400 hover:bg-[rgba(239,68,68,0.08)] rounded-lg px-3 py-1.5 transition-all"
+                >
+                  Set up Integrations →
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CTA URL warning */}
       {noCtaUrl && !hasPushed && (
         <div className="rounded-xl border border-amber-400/40 bg-[var(--surface)] px-4 py-3">

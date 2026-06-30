@@ -1025,7 +1025,9 @@ export default function HomePage() {
                     <PushButton
                       scores={generation.scores}
                       ctaUrl={editedLpContent?.ctaUrl ?? generation.landingPageContent.ctaUrl}
+                      apolloApiKey={settings.apolloApiKey}
                       onPush={handlePush}
+                      onOpenIntegrations={() => { setTab("integrations"); setState(INITIAL); }}
                       instantlyStatus={instantlyStatus}
                       slackStatus={slackStatus}
                       onRetryInstantly={handleRetryApollo}
