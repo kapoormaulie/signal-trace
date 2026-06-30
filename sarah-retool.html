@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ListIQ × Retool — Turn Cloud Budgets Into Closed Deals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #08090d;
+      --surface:    #111318;
+      --surface-2:  #191c23;
+      --border:     rgba(200,165,70,0.12);
+      --border-hi:  rgba(200,165,70,0.28);
+      --gold:       #e8a020;
+      --gold-br:    #ffc73a;
+      --gold-dim:   rgba(232,160,32,0.09);
+      --green:      #22c55e;
+      --green-dim:  rgba(34,197,94,0.12);
+      --text:       #f2efe8;
+      --muted:      #8c8f9e;
+      --dim:        #52556a;
+      --radius:     14px;
+      --shadow:     0 24px 70px -20px rgba(0,0,0,0.75);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(232,160,32,0.022) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232,160,32,0.022) 1px, transparent 1px);
+      background-size: 72px 72px;
+      mask-image: radial-gradient(ellipse 130% 55% at 50% 0%, #000 0%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse 130% 55% at 50% 0%, #000 0%, transparent 70%);
+    }
+
+    /* ---------- NAV ---------- */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 6%; height: 64px;
+      background: rgba(8,9,13,0.78);
+      backdrop-filter: blur(20px) saturate(130%);
+      -webkit-backdrop-filter: blur(20px) saturate(130%);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 1.5rem; letter-spacing: -0.01em; color: var(--text);
+      display: flex; align-items: center; gap: 0.55rem; text-decoration: none;
+    }
+    .logo-mark {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: linear-gradient(135deg, var(--gold-br), var(--gold));
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .nav-links { display: flex; align-items: center; gap: 2rem; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 0.875rem; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ---------- BUTTONS ---------- */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.65rem 1.3rem; border-radius: 9px;
+      font-size: 0.875rem; font-weight: 600; font-family: inherit;
+      text-decoration: none; cursor: pointer; border: none;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s;
+      position: relative;
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold-br), var(--gold));
+      color: #07050a;
+      box-shadow: 0 6px 22px -6px rgba(232,160,32,0.55);
+    }
+    .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(232,160,32,0.7); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border-hi); }
+    .btn-ghost:hover { color: var(--text); border-color: rgba(200,165,70,0.45); background: var(--gold-dim); }
+    .btn-lg { padding: 0.85rem 1.9rem; font-size: 0.95rem; border-radius: 11px; }
+
+    /* ---------- HERO ---------- */
+    .hero-wrap { position: relative; z-index: 1; }
+    .hero-glow {
+      position: absolute; top: -20%; right: 0; width: 650px; height: 650px; pointer-events: none;
+      background: radial-gradient(circle, rgba(232,160,32,0.07) 0%, transparent 60%);
+    }
+    .hero {
+      max-width: 1280px; margin: 0 auto; padding: 6rem 6% 5rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center;
+      position: relative; z-index: 1;
+    }
+    .eyebrow {
+      display: inline-flex; align-items: center; gap: 0.65rem;
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1.5rem;
+    }
+    .eyebrow-line { width: 28px; height: 1px; background: var(--gold); opacity: 0.55; }
+    .hero h1 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(2.1rem, 3.4vw, 3rem);
+      line-height: 1.1; letter-spacing: -0.02em; font-weight: 400;
+      margin-bottom: 1.4rem;
+    }
+    .hero h1 em { font-style: italic; color: var(--gold-br); }
+    .hero-sub { font-size: 1.05rem; color: var(--muted); line-height: 1.72; margin-bottom: 2.4rem; max-width: 500px; }
+    .hero-ctas { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+
+    /* Revenue monitor */
+    .revenue-monitor {
+      border-radius: 20px; border: 1px solid var(--border-hi);
+      background: linear-gradient(160deg, #111419 0%, #0c0e14 100%);
+      box-shadow: var(--shadow), 0 0 0 1px rgba(232,160,32,0.05);
+      padding: 1.5rem; overflow: hidden;
+    }
+    .monitor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.4rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+    }
+    .monitor-title { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+    .live-dot-wrap { display: flex; align-items: center; gap: 0.4rem; font-size: 0.68rem; font-weight: 700; color: var(--green); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: dotPulse 2.5s ease-in-out infinite; }
+    @keyframes dotPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .big-num-wrap { text-align: center; padding: 1.2rem 0 1rem; }
+    .big-num-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin-bottom: 0.5rem; }
+    .big-num {
+      font-family: 'DM Serif Display', serif; font-size: 4.2rem; font-weight: 400;
+      letter-spacing: -0.03em; line-height: 1;
+      background: linear-gradient(135deg, var(--gold-br), var(--gold));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .big-num-sub { font-size: 0.72rem; color: var(--dim); margin-top: 0.4rem; }
+    .mp-list { display: flex; flex-direction: column; gap: 0.55rem; margin-top: 1.2rem; }
+    .mp-item {
+      display: flex; align-items: center; gap: 0.7rem;
+      background: rgba(255,255,255,0.02); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0.65rem 0.85rem;
+    }
+    .mp-icon { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .mp-icon.aws { background: #e8710a; }
+    .mp-icon.az  { background: #0072c6; }
+    .mp-icon.gcp { background: #1a73e8; }
+    .mp-name { flex: 1; font-size: 0.8rem; font-weight: 600; }
+    .mp-bar { width: 64px; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; flex-shrink: 0; }
+    .mp-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--gold), var(--gold-br)); }
+    .mp-tag { font-size: 0.6rem; font-weight: 700; padding: 0.18rem 0.5rem; border-radius: 99px; flex-shrink: 0; }
+    .tag-live { color: var(--green); background: var(--green-dim); border: 1px solid rgba(34,197,94,0.3); }
+    .tag-sync { color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(232,160,32,0.3); }
+    .monitor-foot { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-top: 0.85rem; }
+    .mon-stat { background: var(--gold-dim); border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; }
+    .mon-stat-val { font-family: 'DM Serif Display', serif; font-size: 1.45rem; letter-spacing: -0.02em; color: var(--gold-br); }
+    .mon-stat-lbl { font-size: 0.62rem; color: var(--dim); margin-top: 0.1rem; }
+
+    /* trusted-by */
+    .trusted-by {
+      max-width: 1280px; margin: 0 auto; padding: 0 6% 3rem;
+      display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;
+      position: relative; z-index: 1;
+    }
+    .trusted-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+    .trusted-rule { width: 1px; height: 18px; background: var(--border-hi); }
+    .company-tags { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .ctag {
+      font-size: 0.8rem; font-weight: 600; color: var(--muted);
+      padding: 0.28rem 0.8rem; border-radius: 99px;
+      border: 1px solid var(--border); background: var(--surface);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .ctag.active { color: var(--gold-br); border-color: rgba(232,160,32,0.4); background: var(--gold-dim); }
+
+    /* ---------- TICKER ---------- */
+    .ticker-wrap {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+      background: var(--surface); overflow: hidden; height: 42px;
+    }
+    .ticker-track {
+      display: flex; align-items: center; height: 100%;
+      animation: tickerScroll 32s linear infinite; width: max-content; white-space: nowrap;
+    }
+    .ticker-item { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0 2.5rem; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }
+    .ticker-item .tdot { width: 3px; height: 3px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
+    .ticker-item strong { color: var(--gold); }
+    @keyframes tickerScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+    /* ---------- STATS ---------- */
+    .stats-section { position: relative; z-index: 1; }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      max-width: 1280px; margin: 0 auto; padding: 0 6%;
+      border-left: 1px solid var(--border);
+    }
+    .stat-item {
+      padding: 3.5rem 2rem;
+      border-right: 1px solid var(--border);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative; overflow: hidden; transition: background 0.3s;
+    }
+    .stat-item:hover { background: rgba(232,160,32,0.03); }
+    .stat-item::after {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .stat-item:hover::after { opacity: 1; }
+    .stat-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 3rem; font-weight: 400; letter-spacing: -0.03em; line-height: 1;
+      color: var(--gold-br); display: block; margin-bottom: 0.5rem;
+    }
+    .stat-label { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+    /* ---------- GENERIC SECTION ---------- */
+    section { position: relative; z-index: 1; }
+    .s-inner { max-width: 1280px; margin: 0 auto; padding: 6rem 6%; }
+    .s-inner.narrow { max-width: 920px; }
+    .s-eye {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 1.2rem;
+      display: flex; align-items: center; gap: 0.7rem;
+    }
+    .s-eye::after { content: ''; width: 32px; height: 1px; background: var(--gold); opacity: 0.4; }
+    h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2rem, 3.5vw, 2.85rem);
+      font-weight: 400; letter-spacing: -0.02em; line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    h2 em { font-style: italic; color: var(--gold-br); }
+    .s-sub { font-size: 1.05rem; color: var(--muted); max-width: 540px; line-height: 1.7; margin-bottom: 3.5rem; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; position: relative; z-index: 1; }
+
+    /* ---------- PROBLEM CELLS ---------- */
+    .problem-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    }
+    .prob-cell { background: var(--bg); padding: 2.2rem 2rem; transition: background 0.25s; }
+    .prob-cell:hover { background: var(--surface); }
+    .prob-icon { font-size: 1.5rem; margin-bottom: 0.9rem; display: block; }
+    .prob-cell h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.01em; }
+    .prob-cell p { font-size: 0.875rem; color: var(--muted); line-height: 1.68; }
+
+    /* ---------- TIMELINE ---------- */
+    .timeline { position: relative; }
+    .timeline::before {
+      content: ''; position: absolute; left: 19px; top: 22px; bottom: 22px;
+      width: 1px; background: linear-gradient(180deg, var(--gold) 0%, transparent 100%);
+      opacity: 0.18;
+    }
+    .tl-item { display: flex; gap: 2.5rem; padding-bottom: 3.2rem; }
+    .tl-item:last-child { padding-bottom: 0; }
+    .tl-num {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: var(--surface); border: 1px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'DM Serif Display', serif; font-size: 1rem; color: var(--gold);
+      position: relative; z-index: 1; margin-top: 2px;
+    }
+    .tl-body h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.45rem; letter-spacing: -0.01em; padding-top: 0.4rem; }
+    .tl-body p { font-size: 0.9rem; color: var(--muted); line-height: 1.7; max-width: 480px; }
+    .tl-time {
+      display: inline-block; margin-top: 0.7rem;
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--gold); padding: 0.18rem 0.6rem; border-radius: 99px;
+      border: 1px solid rgba(232,160,32,0.3); background: var(--gold-dim);
+    }
+
+    /* ---------- FEATURES ---------- */
+    .feat-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: 16px; overflow: hidden;
+    }
+    .feat-cell { background: var(--bg); padding: 2.3rem 2.1rem; transition: background 0.25s; }
+    .feat-cell:hover { background: var(--surface); }
+    .feat-icon {
+      width: 44px; height: 44px; border-radius: 11px;
+      border: 1px solid var(--border-hi); background: var(--gold-dim);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; margin-bottom: 1.1rem;
+      transition: transform 0.25s cubic-bezier(.2,.8,.2,1);
+    }
+    .feat-cell:hover .feat-icon { transform: scale(1.1) rotate(4deg); }
+    .feat-cell h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.45rem; letter-spacing: -0.01em; }
+    .feat-cell p { font-size: 0.875rem; color: var(--muted); line-height: 1.65; }
+
+    /* ---------- MARKETPLACE CARDS ---------- */
+    .mp-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+    .mp-card {
+      border-radius: var(--radius); padding: 2rem;
+      background: var(--surface); border: 1px solid var(--border);
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+    }
+    .mp-card:hover { transform: translateY(-4px); }
+    .mp-card.aws:hover { box-shadow: 0 22px 55px -18px rgba(232,113,10,0.3); border-color: rgba(232,113,10,0.3); }
+    .mp-card.az:hover  { box-shadow: 0 22px 55px -18px rgba(0,114,198,0.3); border-color: rgba(0,114,198,0.3); }
+    .mp-card.gcp:hover { box-shadow: 0 22px 55px -18px rgba(26,115,232,0.3); border-color: rgba(26,115,232,0.3); }
+    .mc-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; color: #fff; margin-bottom: 1.1rem; }
+    .mc-icon.aws { background: #e8710a; }
+    .mc-icon.az  { background: #0072c6; }
+    .mc-icon.gcp { background: #1a73e8; }
+    .mp-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .mp-card p { font-size: 0.875rem; color: var(--muted); line-height: 1.65; }
+    .mc-stat { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--muted); }
+    .mc-stat strong { color: var(--text); }
+
+    /* ---------- QUOTES ---------- */
+    .quotes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+    .quote-card {
+      border-radius: var(--radius); padding: 2rem;
+      background: var(--surface); border: 1px solid var(--border);
+      display: flex; flex-direction: column;
+    }
+    .q-mark {
+      font-family: 'DM Serif Display', serif; font-size: 3rem; line-height: 0.7;
+      color: var(--gold); opacity: 0.3; margin-bottom: 0.8rem;
+    }
+    .q-text { font-size: 0.9rem; color: var(--text); line-height: 1.74; flex: 1; margin-bottom: 1.4rem; }
+    .q-author { display: flex; align-items: center; gap: 0.8rem; }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--gold-br), var(--gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; color: #07050a;
+    }
+    .q-name { font-size: 0.85rem; font-weight: 600; }
+    .q-role { font-size: 0.72rem; color: var(--dim); }
+
+    /* ---------- CTA ---------- */
+    .cta-section {
+      margin: 0 6% 6rem; border-radius: 22px; position: relative; overflow: hidden;
+      background: linear-gradient(140deg, rgba(232,160,32,0.1) 0%, var(--surface) 55%, rgba(232,160,32,0.04) 100%);
+      border: 1px solid var(--border-hi); padding: 5rem 3rem; text-align: center; z-index: 1;
+    }
+    .cta-section::before {
+      content: ''; position: absolute; top: -45%; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 420px;
+      background: radial-gradient(ellipse, rgba(232,160,32,0.15) 0%, transparent 68%);
+      pointer-events: none;
+    }
+    .cta-section > * { position: relative; }
+    .cta-section h2 { margin-bottom: 1rem; }
+    .cta-section .s-sub { margin: 0 auto 2rem; text-align: center; }
+    .form-row { display: flex; gap: 0.7rem; max-width: 470px; margin: 0 auto 1rem; }
+    .form-input {
+      flex: 1; padding: 0.82rem 1rem; border-radius: 10px;
+      border: 1px solid var(--border-hi); background: rgba(8,9,13,0.65);
+      color: var(--text); font-size: 0.9rem; font-family: inherit;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(232,160,32,0.15); }
+    .form-input::placeholder { color: var(--dim); }
+    .form-note { font-size: 0.75rem; color: var(--dim); }
+    .cta-eye { justify-content: center; margin-bottom: 1.2rem; }
+
+    /* ---------- FOOTER ---------- */
+    footer {
+      border-top: 1px solid var(--border); padding: 2.5rem 6%;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;
+      position: relative; z-index: 1;
+    }
+    footer p { font-size: 0.75rem; color: var(--dim); }
+
+    /* ---------- SCROLL REVEAL ---------- */
+    .reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.65s cubic-bezier(.2,.8,.2,1), transform 0.65s cubic-bezier(.2,.8,.2,1); }
+    .reveal.in { opacity: 1; transform: none; }
+    .stagger > * { opacity: 0; transform: translateY(18px); transition: opacity 0.55s cubic-bezier(.2,.8,.2,1), transform 0.55s cubic-bezier(.2,.8,.2,1); }
+    .stagger.in > * { opacity: 1; transform: none; }
+    .stagger.in > *:nth-child(2) { transition-delay: 0.07s; }
+    .stagger.in > *:nth-child(3) { transition-delay: 0.14s; }
+    .stagger.in > *:nth-child(4) { transition-delay: 0.21s; }
+    .stagger.in > *:nth-child(5) { transition-delay: 0.28s; }
+    .stagger.in > *:nth-child(6) { transition-delay: 0.35s; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal, .stagger > *, .revenue-monitor, .hero h1, .hero-sub, .hero-ctas, .eyebrow { opacity: 1 !important; transform: none !important; transition: none !important; animation: none !important; }
+    }
+
+    /* ---------- HERO ENTRANCE ---------- */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+    .hero-copy .eyebrow  { animation: fadeUp 0.6s cubic-bezier(.2,.8,.2,1) 0.1s both; }
+    .hero-copy h1        { animation: fadeUp 0.7s cubic-bezier(.2,.8,.2,1) 0.22s both; }
+    .hero-sub            { animation: fadeUp 0.7s cubic-bezier(.2,.8,.2,1) 0.36s both; }
+    .hero-ctas           { animation: fadeUp 0.7s cubic-bezier(.2,.8,.2,1) 0.48s both; }
+    .revenue-monitor     { animation: fadeUp 0.85s cubic-bezier(.2,.8,.2,1) 0.18s both; }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 1024px) {
+      .hero { grid-template-columns: 1fr; gap: 3.2rem; }
+      .revenue-monitor { max-width: 480px; }
+      .problem-grid { grid-template-columns: 1fr; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .mp-cards { grid-template-columns: 1fr; }
+      .quotes-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .nav-links a:not(.btn) { display: none; }
+      .form-row { flex-direction: column; }
+      .cta-section { padding: 3.5rem 1.5rem; }
+    }
+    @media (max-width: 520px) {
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="logo">
+    <div class="logo-mark" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+        <circle cx="3.5" cy="3.5" r="1.4" fill="#07050a"/>
+        <circle cx="11.5" cy="3.5" r="1.4" fill="#07050a"/>
+        <circle cx="3.5" cy="11.5" r="1.4" fill="#07050a"/>
+        <circle cx="11.5" cy="11.5" r="1.4" fill="#07050a"/>
+        <path d="M3.5 3.5L11.5 3.5M3.5 3.5L11.5 11.5M3.5 11.5L11.5 11.5" stroke="#07050a" stroke-width="1.1" stroke-opacity="0.45"/>
+      </svg>
+    </div>
+    ListIQ
+  </a>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#marketplaces">Marketplaces</a>
+    <a href="#demo" class="btn btn-gold">Book a demo</a>
+  </div>
+</nav>
+
+<div class="hero-wrap">
+  <div class="hero-glow" aria-hidden="true"></div>
+  <div class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="eyebrow-line"></span>Cloud Marketplace Platform · For Retool</div>
+      <h1>Sarah, there's <em>$2.4M</em> in committed cloud spend waiting on Retool's listing</h1>
+      <p class="hero-sub">Your enterprise buyers have AWS, Azure, and GCP budgets they're burning to spend — on software exactly like Retool. ListIQ gets you listed, co-sell enabled, and revenue flowing in days, not the six months you don't have.</p>
+      <div class="hero-ctas">
+        <a href="#demo" class="btn btn-gold btn-lg">Book a Demo →</a>
+        <a href="#how" class="btn btn-ghost btn-lg">See how it works</a>
+      </div>
+    </div>
+
+    <div class="revenue-monitor" aria-hidden="true">
+      <div class="monitor-header">
+        <span class="monitor-title">LISTIQ · RETOOL REVENUE MONITOR</span>
+        <div class="live-dot-wrap"><div class="live-dot"></div>Live</div>
+      </div>
+      <div class="big-num-wrap">
+        <div class="big-num-label">Projected Marketplace Pipeline · Year 1</div>
+        <div class="big-num" id="hero-ticker">$0</div>
+        <div class="big-num-sub">Based on comparable SaaS listings in your category</div>
+      </div>
+      <div class="mp-list">
+        <div class="mp-item">
+          <div class="mp-icon aws">AWS</div>
+          <span class="mp-name">AWS Marketplace</span>
+          <div class="mp-bar"><div class="mp-fill" style="width:100%"></div></div>
+          <span class="mp-tag tag-live">Live</span>
+        </div>
+        <div class="mp-item">
+          <div class="mp-icon az">AZ</div>
+          <span class="mp-name">Azure Marketplace</span>
+          <div class="mp-bar"><div class="mp-fill" style="width:68%"></div></div>
+          <span class="mp-tag tag-sync">Syncing</span>
+        </div>
+        <div class="mp-item">
+          <div class="mp-icon gcp">GCP</div>
+          <span class="mp-name">GCP Marketplace</span>
+          <div class="mp-bar"><div class="mp-fill" style="width:100%"></div></div>
+          <span class="mp-tag tag-live">Live</span>
+        </div>
+      </div>
+      <div class="monitor-foot">
+        <div class="mon-stat"><div class="mon-stat-val">9 days</div><div class="mon-stat-lbl">to first listing</div></div>
+        <div class="mon-stat"><div class="mon-stat-val">3 / 3</div><div class="mon-stat-lbl">marketplaces live</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="trusted-by reveal">
+  <span class="trusted-label">Trusted by revenue teams at</span>
+  <div class="trusted-rule"></div>
+  <div class="company-tags">
+    <span class="ctag active">Retool</span>
+    <span class="ctag">Linear</span>
+    <span class="ctag">Loom</span>
+    <span class="ctag">Webflow</span>
+    <span class="ctag">Airtable</span>
+  </div>
+</div>
+
+<div class="ticker-wrap" aria-hidden="true">
+  <div class="ticker-track">
+    <span class="ticker-item"><span class="tdot"></span><strong>$15B+</strong> in AWS Marketplace annual transactions</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>9 days</strong> average time-to-listing with ListIQ</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>95%</strong> of Fortune 500 use Azure</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>$10B+</strong> GCP committed spend available</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>3×</strong> faster listing than going it alone</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>Zero</strong> compliance surprises, guaranteed</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>90%</strong> less engineering effort</span>
+    <span class="ticker-item"><span class="tdot"></span>Co-sell enabled across all three hyperscalers</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>$15B+</strong> in AWS Marketplace annual transactions</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>9 days</strong> average time-to-listing with ListIQ</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>95%</strong> of Fortune 500 use Azure</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>$10B+</strong> GCP committed spend available</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>3×</strong> faster listing than going it alone</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>Zero</strong> compliance surprises, guaranteed</span>
+    <span class="ticker-item"><span class="tdot"></span><strong>90%</strong> less engineering effort</span>
+    <span class="ticker-item"><span class="tdot"></span>Co-sell enabled across all three hyperscalers</span>
+  </div>
+</div>
+
+<section class="stats-section">
+  <div class="stats-grid stagger">
+    <div class="stat-item"><span class="stat-num" data-target="3" data-suffix="×">3×</span><p class="stat-label">faster time to first live listing</p></div>
+    <div class="stat-item"><span class="stat-num" data-target="90" data-suffix="%">90%</span><p class="stat-label">less engineering effort required</p></div>
+    <div class="stat-item"><span class="stat-num" data-target="0" data-prefix="$">$0</span><p class="stat-label">compliance surprises, guaranteed</p></div>
+    <div class="stat-item"><span class="stat-num" data-target="3">3</span><p class="stat-label">hyperscalers, one unified platform</p></div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<section>
+  <div class="s-inner">
+    <div class="s-eye reveal">The Problem</div>
+    <h2 class="reveal">Marketplace revenue is real. <em>Getting to it</em> isn't.</h2>
+    <p class="s-sub reveal">Your buyers have committed cloud budgets and they want to spend them — but the path from "let's list on AWS" to "deal closed through marketplace" is full of landmines that eat months before a dollar comes in.</p>
+    <div class="problem-grid stagger">
+      <div class="prob-cell">
+        <span class="prob-icon">📊</span>
+        <h3>Attribution is a black hole</h3>
+        <p>Marketplace deals sit outside your CRM, making it nearly impossible to tie them to pipeline and forecast with any confidence. That's revenue you can't report on, Sarah.</p>
+      </div>
+      <div class="prob-cell">
+        <span class="prob-icon">🤝</span>
+        <h3>Co-sell runs on spreadsheets and hope</h3>
+        <p>Coordinating with AWS, Azure, and GCP sales reps means juggling portals, emails, and manual referrals — none of it wired to your RevOps stack or visible in Salesforce.</p>
+      </div>
+      <div class="prob-cell">
+        <span class="prob-icon">⏳</span>
+        <h3>Getting listed takes months you don't have</h3>
+        <p>Review cycles and certification hoops across three hyperscalers can eat 6–12 weeks before a single deal flows through. By then, the quarter is already gone.</p>
+      </div>
+      <div class="prob-cell">
+        <span class="prob-icon">🔄</span>
+        <h3>Keeping listings in sync is someone's whole job</h3>
+        <p>Pricing updates, screenshots, descriptions — every change needs to go into three portals by hand. Without tooling, you're one departure away from stale listings.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<section id="how">
+  <div class="s-inner narrow">
+    <div class="s-eye reveal">How It Works</div>
+    <h2 class="reveal">From zero to listed in <em>days,</em> not months</h2>
+    <p class="s-sub reveal">ListIQ handles the compliance complexity so your team can stay focused on closing.</p>
+    <div class="timeline stagger">
+      <div class="tl-item">
+        <div class="tl-num">1</div>
+        <div class="tl-body">
+          <h3>Connect Retool's product metadata</h3>
+          <p>Sync your software details, pricing tiers, and listing assets through our dashboard or API — no engineering hand-holding needed. One intake, used everywhere.</p>
+          <span class="tl-time">Under 1 hour</span>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-num">2</div>
+        <div class="tl-body">
+          <h3>Choose your marketplaces</h3>
+          <p>Select AWS, Azure, GCP — or all three. ListIQ auto-adapts your listing to each platform's requirements: field mapping, offer types, plan configurations.</p>
+          <span class="tl-time">Same day</span>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-num">3</div>
+        <div class="tl-body">
+          <h3>We handle compliance, metering &amp; billing</h3>
+          <p>SaaS contracts, entitlement APIs, metering hooks, and certification checks handled automatically. Zero engineering lift. Zero rejection surprises.</p>
+          <span class="tl-time">Days 1–7</span>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-num">4</div>
+        <div class="tl-body">
+          <h3>Go live and grow</h3>
+          <p>Publish across all three marketplaces simultaneously. Keep listings fresh with one-click updates. Track pipeline, impressions, and co-sell in your unified dashboard.</p>
+          <span class="tl-time">Day 9 average</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<section id="features">
+  <div class="s-inner">
+    <div class="s-eye reveal">Features</div>
+    <h2 class="reveal">Everything a RevOps team needs to <em>win</em> on cloud marketplaces</h2>
+    <p class="s-sub reveal">Built for revenue, growth, and GTM teams who need speed without sacrificing compliance or visibility.</p>
+    <div class="feat-grid stagger">
+      <div class="feat-cell">
+        <div class="feat-icon">⚡</div>
+        <h3>One-click multi-marketplace publish</h3>
+        <p>Write your listing once, publish everywhere. ListIQ handles format conversion and field mapping for each platform automatically.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon">🔌</div>
+        <h3>Metering &amp; billing API integration</h3>
+        <p>Pre-built integrations with AWS SaaS contracts, Azure billing, and GCP entitlements — out of the box, no engineering required.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon">✅</div>
+        <h3>Compliance auto-checker</h3>
+        <p>Catch errors before submission. Our validator flags missing fields, policy violations, and formatting issues before they cost you a review cycle.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon">📊</div>
+        <h3>Unified analytics dashboard</h3>
+        <p>Track impressions, clicks, trials, and revenue across all three marketplaces in one place. Finally, attribution you can put in a board deck.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon">🤝</div>
+        <h3>Co-sell &amp; private offer support</h3>
+        <p>Create and manage private offers and co-sell opportunities with cloud providers directly from ListIQ — no more portal-hopping.</p>
+      </div>
+      <div class="feat-cell">
+        <div class="feat-icon">🔄</div>
+        <h3>Sync updates across all listings</h3>
+        <p>Update pricing, features, or screenshots once and push to all marketplaces simultaneously. One source of truth, always current.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<section id="marketplaces">
+  <div class="s-inner">
+    <div class="s-eye reveal">Supported Platforms</div>
+    <h2 class="reveal">All three hyperscalers, <em>one</em> platform</h2>
+    <p class="s-sub reveal">Access hundreds of millions in committed cloud spend from buyers already on AWS, Azure, and GCP.</p>
+    <div class="mp-cards stagger">
+      <div class="mp-card aws">
+        <div class="mc-icon aws">AWS</div>
+        <h3>AWS Marketplace</h3>
+        <p>Reach 300,000+ active customers. ListIQ handles SaaS contract APIs, metering, and ISV Accelerate enrollment from day one.</p>
+        <div class="mc-stat"><strong>$15B+</strong> in annual AWS Marketplace transactions</div>
+      </div>
+      <div class="mp-card az">
+        <div class="mc-icon az">AZ</div>
+        <h3>Azure Marketplace</h3>
+        <p>Tap into Microsoft's partner network. We handle Azure offer types, plan configuration, and billing integration — nothing manual.</p>
+        <div class="mc-stat"><strong>95%</strong> of Fortune 500 companies use Azure</div>
+      </div>
+      <div class="mp-card gcp">
+        <div class="mc-icon gcp">GCP</div>
+        <h3>GCP Marketplace</h3>
+        <p>Unlock committed spend from Google Cloud customers. ListIQ manages procurement integration and listing setup end to end.</p>
+        <div class="mc-stat"><strong>$10B+</strong> in GCP committed spend available</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider" />
+
+<section>
+  <div class="s-inner">
+    <div class="s-eye reveal">What Teams Are Saying</div>
+    <h2 class="reveal">Revenue teams who stopped wrestling with portals and <em>started closing</em></h2>
+    <div class="quotes-grid stagger" style="margin-top:3rem">
+      <div class="quote-card">
+        <div class="q-mark">"</div>
+        <p class="q-text">We tried to do our AWS listing in-house and wasted two months. ListIQ got us live in 9 days. The compliance checker alone saved us from three rejection cycles.</p>
+        <div class="q-author">
+          <div class="avatar">SM</div>
+          <div><div class="q-name">Sarah M.</div><div class="q-role">VP of Revenue Operations</div></div>
+        </div>
+      </div>
+      <div class="quote-card">
+        <div class="q-mark">"</div>
+        <p class="q-text">Cloud marketplace is now our #2 revenue channel. Having all three listings in sync with a single update is a game changer for our growth motion.</p>
+        <div class="q-author">
+          <div class="avatar">RG</div>
+          <div><div class="q-name">Rachel G.</div><div class="q-role">VP of Sales</div></div>
+        </div>
+      </div>
+      <div class="quote-card">
+        <div class="q-mark">"</div>
+        <p class="q-text">As a GTM Engineer I was dreading the marketplace integration work. ListIQ's metering API was plug-and-play. We shipped what would have taken a quarter in under two weeks.</p>
+        <div class="q-author">
+          <div class="avatar">JO</div>
+          <div><div class="q-name">James O.</div><div class="q-role">GTM Engineer</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="cta-section reveal">
+    <div class="s-eye cta-eye">Get Started</div>
+    <h2>Ready to get Retool live on AWS, Azure &amp; GCP?</h2>
+    <p class="s-sub">Book a 20-minute call, Sarah — we'll show you exactly how fast Retool can be listed, compliant, and co-sell ready on all three marketplaces.</p>
+    <div class="form-row">
+      <input class="form-input" type="email" placeholder="sarah.mitchell@retool.com" />
+      <button class="btn btn-gold btn-lg">Book a Demo</button>
+    </div>
+    <p class="form-note">No credit card required. We'll reach out within 1 business day.</p>
+  </div>
+</section>
+
+<footer>
+  <a href="#" class="logo" style="font-size:1.2rem">
+    <div class="logo-mark" aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+        <circle cx="3.5" cy="3.5" r="1.4" fill="#07050a"/>
+        <circle cx="11.5" cy="3.5" r="1.4" fill="#07050a"/>
+        <circle cx="3.5" cy="11.5" r="1.4" fill="#07050a"/>
+        <circle cx="11.5" cy="11.5" r="1.4" fill="#07050a"/>
+        <path d="M3.5 3.5L11.5 3.5M3.5 3.5L11.5 11.5M3.5 11.5L11.5 11.5" stroke="#07050a" stroke-width="1.1" stroke-opacity="0.45"/>
+      </svg>
+    </div>
+    ListIQ
+  </a>
+  <p>© 2026 ListIQ. All rights reserved.</p>
+  <p>AWS, Azure, and GCP are trademarks of their respective owners.</p>
+</footer>
+
+<script>
+/* Hero count-up */
+(function() {
+  var el = document.getElementById('hero-ticker');
+  if (!el) return;
+  var target = 2400000, dur = 2000;
+  function fmt(n) {
+    if (n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000)    return '$' + Math.round(n / 1000) + 'K';
+    return '$' + n;
+  }
+  function run(t0) {
+    return function frame(now) {
+      var p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(Math.round(e * target));
+      if (p < 1) requestAnimationFrame(frame);
+    };
+  }
+  setTimeout(function() { requestAnimationFrame(run(performance.now())); }, 500);
+})();
+
+/* Stat counters */
+(function() {
+  var els = document.querySelectorAll('.stat-num[data-target]');
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(en) {
+      if (!en.isIntersecting) return;
+      var el = en.target;
+      var target = +el.dataset.target;
+      var prefix = el.dataset.prefix || '';
+      var suffix = el.dataset.suffix || '';
+      var dur = 1400, t0 = performance.now();
+      (function frame(now) {
+        var p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 3);
+        el.textContent = prefix + Math.round(e * target) + suffix;
+        if (p < 1) requestAnimationFrame(frame);
+      })(t0);
+      obs.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  els.forEach(function(el) { obs.observe(el); });
+})();
+
+/* Scroll reveal */
+(function() {
+  var els = document.querySelectorAll('.reveal, .stagger');
+  if (!('IntersectionObserver' in window)) {
+    els.forEach(function(e) { e.classList.add('in'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries) {
+    entries.forEach(function(en) {
+      if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  els.forEach(function(e) { io.observe(e); });
+})();
+</script>
+</body>
+</html>

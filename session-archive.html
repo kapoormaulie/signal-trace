@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SignalTrace — Build Session Archive</title>
+<style>
+  :root {
+    --bg: #0D0F1E;
+    --surface: #13152B;
+    --card: #1A1C36;
+    --border: #2A2D50;
+    --ink: #E4E6FF;
+    --ink-2: #A8ABCF;
+    --ink-3: #6668A8;
+    --brand: #6366F1;
+    --brand-light: #818CF8;
+    --brand-dark: #4F46E5;
+    --green: #34D399;
+    --amber: #FCD34D;
+    --red: #F87171;
+    --violet: #A78BFA;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    padding: 0 0 80px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #1A1C42 0%, #0F1030 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 40px 0 36px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(99,102,241,0.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 50%, rgba(124,58,237,0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .logo-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .logo-mark svg { filter: drop-shadow(0 0 8px rgba(99,102,241,0.5)); }
+  .logo-mark span {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #818CF8, #A78BFA);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header h1 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .header .date {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--ink-3);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin: 36px 0 28px;
+  }
+  .toc h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); margin-bottom: 14px; }
+  .toc ol { padding-left: 18px; }
+  .toc li { margin-bottom: 6px; }
+  .toc a { color: var(--brand-light); text-decoration: none; font-size: 13px; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Sections ── */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-num {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: rgba(99,102,241,0.15);
+    border: 1px solid rgba(99,102,241,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--brand-light);
+    flex-shrink: 0;
+  }
+  .section h2 { font-size: 16px; font-weight: 700; color: var(--ink); }
+  .section h3 { font-size: 13px; font-weight: 600; color: var(--ink-2); margin: 18px 0 8px; }
+  .section p { color: var(--ink-2); margin-bottom: 10px; }
+
+  /* ── Feature grid ── */
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .feature-card .label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--brand-light); margin-bottom: 6px;
+  }
+  .feature-card p { font-size: 12px; color: var(--ink-3); margin: 0; }
+
+  /* ── Code ── */
+  pre, code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+  pre {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-size: 12px;
+    color: #C9D1E0;
+    margin: 12px 0;
+    line-height: 1.7;
+  }
+  code {
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 12px;
+    color: var(--brand-light);
+  }
+  pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+
+  /* ── Tables ── */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th {
+    text-align: left; padding: 8px 12px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td { padding: 9px 12px; border-bottom: 1px solid rgba(42,45,80,0.6); color: var(--ink-2); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: var(--ink); font-weight: 500; }
+
+  /* ── Pills ── */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px;
+    border: 1px solid; margin: 2px;
+  }
+  .pill.blue { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: var(--brand-light); }
+  .pill.green { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: var(--green); }
+  .pill.violet { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.3); color: var(--violet); }
+  .pill.amber { background: rgba(252,211,77,0.1); border-color: rgba(252,211,77,0.3); color: var(--amber); }
+
+  /* ── File tree ── */
+  .tree {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--ink-2);
+    margin: 12px 0;
+  }
+  .tree .dir { color: var(--brand-light); font-weight: 600; }
+  .tree .file { color: var(--ink-2); }
+  .tree .comment { color: var(--ink-3); }
+
+  /* ── Steps ── */
+  .steps { counter-reset: step; }
+  .step {
+    display: flex; gap: 16px;
+    margin-bottom: 16px;
+    counter-increment: step;
+  }
+  .step::before {
+    content: counter(step);
+    flex-shrink: 0;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(99,102,241,0.2);
+    border: 1px solid rgba(99,102,241,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--brand-light);
+    margin-top: 1px;
+  }
+  .step-content { flex: 1; }
+  .step-content strong { color: var(--ink); display: block; margin-bottom: 4px; }
+  .step-content p { color: var(--ink-3); font-size: 13px; margin: 0; }
+
+  /* ── Chat messages ── */
+  .chat { margin: 16px 0; }
+  .msg {
+    margin-bottom: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .msg.user {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2);
+    color: var(--ink);
+    margin-left: 60px;
+  }
+  .msg.user::before {
+    content: 'You';
+    display: block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--brand-light); margin-bottom: 5px;
+  }
+  .msg.assistant {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    margin-right: 60px;
+  }
+  .msg.assistant::before {
+    content: 'Claude';
+    display: block; font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--violet); margin-bottom: 5px;
+  }
+
+  /* ── Change log ── */
+  .change {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(42,45,80,0.5);
+  }
+  .change:last-child { border-bottom: none; }
+  .change-tag {
+    flex-shrink: 0;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    padding: 2px 8px; border-radius: 6px; margin-top: 2px;
+  }
+  .tag-new { background: rgba(52,211,153,0.15); color: var(--green); border: 1px solid rgba(52,211,153,0.3); }
+  .tag-fix { background: rgba(252,211,77,0.15); color: var(--amber); border: 1px solid rgba(252,211,77,0.3); }
+  .tag-update { background: rgba(99,102,241,0.15); color: var(--brand-light); border: 1px solid rgba(99,102,241,0.3); }
+  .change-body strong { font-size: 13px; color: var(--ink); display: block; }
+  .change-body p { font-size: 12px; color: var(--ink-3); margin: 2px 0 0; }
+
+  /* ── Env table ── */
+  .env-row { display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(42,45,80,0.5); }
+  .env-row:last-child { border-bottom: none; }
+  .env-key { font-family: monospace; font-size: 12px; color: var(--green); min-width: 280px; flex-shrink: 0; }
+  .env-desc { font-size: 12px; color: var(--ink-3); }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 40px 0 0;
+    color: var(--ink-3);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+  .footer strong { color: var(--brand-light); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════ HEADER ════════════════════════════════ -->
+<div class="header">
+  <div class="logo-mark">
+    <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="7" fill="url(#hg)"/>
+      <path d="M3.5 16 L10 16 L12.5 11 L15.5 21.5 L20 4.5 L24.5 23 L27 16 L28.5 16"
+        stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs>
+        <linearGradient id="hg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#6366F1"/>
+          <stop offset="100%" stop-color="#4F46E5"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <span>SignalTrace</span>
+  </div>
+  <h1>Complete Build Session Archive</h1>
+  <div class="date">Session date: June 30, 2026</div>
+</div>
+
+<div class="container">
+
+<!-- ════════════════════════════════ TOC ════════════════════════════════ -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#overview">Project Overview</a></li>
+    <li><a href="#quickstart">Quick Start & Running Locally</a></li>
+    <li><a href="#env">Environment Variables</a></li>
+    <li><a href="#stack">Tech Stack</a></li>
+    <li><a href="#structure">File Structure</a></li>
+    <li><a href="#flow">App Flow</a></li>
+    <li><a href="#design">Design System</a></li>
+    <li><a href="#changelog">Full Changelog (this session)</a></li>
+    <li><a href="#decisions">Key Technical Decisions</a></li>
+    <li><a href="#session">Session Conversation Log</a></li>
+    <li><a href="#troubleshoot">Troubleshooting</a></li>
+  </ol>
+</div>
+
+<!-- ════════════════════════════════ 1 — OVERVIEW ════════════════════════ -->
+<div class="section" id="overview">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <h2>Project Overview</h2>
+  </div>
+  <p>SignalTrace is a signal-powered cold email tool that finds live buying signals for a B2B prospect, generates a hyper-personalised email and landing page using AI, then pushes the lead to Apollo CRM and Slack — all in one flow.</p>
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="label">🔍 Signal Detection</div>
+      <p>Uses Exa to find real-time news, funding rounds, hiring signals, and personal activity for the prospect.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">✉️ AI Email Generation</div>
+      <p>Groq (LLaMA 3.3 70B) writes a personalised cold email referencing the chosen signal + sender company context.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🚀 CRM Push</div>
+      <p>One-click push adds the contact to Apollo CRM, enrols in sequence, and sends Slack notification with scores.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🌐 Landing Pages</div>
+      <p>Each lead gets a personalised landing page (stored in Redis) with dynamic headline, body, and CTA from your sender's perspective.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">📊 Bulk Mode</div>
+      <p>ICP-match, filter builder, or CSV import. Process many companies sequentially with live progress table.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🌙 Dark / Light Mode</div>
+      <p>Full dark/light theme with CSS variable system. No flash on reload. Preference saved to localStorage.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ 2 — QUICKSTART ══════════════════════ -->
+<div class="section" id="quickstart">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <h2>Quick Start — Running Locally</h2>
+  </div>
+
+  <h3>First time setup</h3>
+  <pre>cd "C:\Users\LENOVO\Downloads\SignalTrace"
+npm install                    # install dependencies
+# create .env.local (see section 3)
+npm run dev                    # start dev server</pre>
+
+  <h3>Every subsequent time</h3>
+  <pre># If port conflicts / app won't open:
+taskkill /f /im node.exe       # kill all Node.js processes (Windows)
+
+# Then start fresh:
+cd "C:\Users\LENOVO\Downloads\SignalTrace"
+npm run dev</pre>
+
+  <p>The terminal will show the URL — open it in your browser. It's usually <code>http://localhost:3000</code>. If that port is taken, Next.js uses 3001, 3002, etc. — always check the terminal output.</p>
+
+  <h3>Production build</h3>
+  <pre>npm run build    # compile for production
+npm run start    # serve production build</pre>
+
+  <h3>Useful checks</h3>
+  <pre>npx tsc --noEmit    # TypeScript check — no output means clean
+npm run lint        # ESLint</pre>
+</div>
+
+<!-- ════════════════════════════════ 3 — ENV ═════════════════════════════ -->
+<div class="section" id="env">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <h2>Environment Variables</h2>
+  </div>
+  <p>Create a file called <code>.env.local</code> in the project root (<code>C:\Users\LENOVO\Downloads\SignalTrace\.env.local</code>).</p>
+
+  <div class="env-row"><div class="env-key">EXA_API_KEY</div><div class="env-desc">Exa API key — used for signal search and people/company lookup. Get from exa.ai</div></div>
+  <div class="env-row"><div class="env-key">GROQ_API_KEY</div><div class="env-desc">Groq API key — powers email + LP generation via LLaMA 3.3 70B. Get from console.groq.com</div></div>
+  <div class="env-row"><div class="env-key">UPSTASH_REDIS_REST_URL</div><div class="env-desc">Upstash Redis REST URL — stores history and landing page content. Get from console.upstash.com</div></div>
+  <div class="env-row"><div class="env-key">UPSTASH_REDIS_REST_TOKEN</div><div class="env-desc">Upstash Redis REST token — paired with the URL above</div></div>
+  <div class="env-row"><div class="env-key">APOLLO_API_KEY</div><div class="env-desc">Apollo.io v1 API key — used to push contacts and enrol in sequences. Get from app.apollo.io/settings/integrations/api</div></div>
+  <div class="env-row"><div class="env-key">SLACK_WEBHOOK_URL</div><div class="env-desc">Slack Incoming Webhook URL — sends push notification with scores + LP link. Create at api.slack.com/apps</div></div>
+  <div class="env-row"><div class="env-key">NEXT_PUBLIC_BASE_URL</div><div class="env-desc">Base URL of the app — used to construct LP links. e.g. http://localhost:3000 for dev, your domain for prod</div></div>
+
+  <pre>EXA_API_KEY=
+GROQ_API_KEY=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+APOLLO_API_KEY=
+SLACK_WEBHOOK_URL=
+NEXT_PUBLIC_BASE_URL=http://localhost:3000</pre>
+</div>
+
+<!-- ════════════════════════════════ 4 — STACK ═══════════════════════════ -->
+<div class="section" id="stack">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <h2>Tech Stack</h2>
+  </div>
+  <table>
+    <tr><th>Layer</th><th>Technology</th><th>Version</th></tr>
+    <tr><td>Framework</td><td>Next.js App Router (TypeScript)</td><td>15.5.19</td></tr>
+    <tr><td>UI</td><td>React</td><td>19.0</td></tr>
+    <tr><td>Styling</td><td>Tailwind CSS + custom CSS variables</td><td>3.4.17</td></tr>
+    <tr><td>Fonts</td><td>Plus Jakarta Sans · JetBrains Mono</td><td>via next/font/google</td></tr>
+    <tr><td>AI / LLM</td><td>Groq — llama-3.3-70b-versatile</td><td>groq-sdk ^1.3.0</td></tr>
+    <tr><td>Signal search</td><td>Exa web search API</td><td>exa-js ^1.8.5</td></tr>
+    <tr><td>CRM</td><td>Apollo.io v1 REST API</td><td>fetch (no SDK)</td></tr>
+    <tr><td>Notifications</td><td>Slack Incoming Webhook</td><td>fetch</td></tr>
+    <tr><td>Storage</td><td>Upstash Redis (serverless)</td><td>@upstash/redis ^1.34.9</td></tr>
+    <tr><td>Fuzzy match</td><td>Fuse.js — duplicate detection</td><td>^7.1.0</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════ 5 — STRUCTURE ═══════════════════════ -->
+<div class="section" id="structure">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <h2>File Structure</h2>
+  </div>
+  <div class="tree">
+<span class="dir">SignalTrace/</span>
+├── <span class="dir">app/</span>
+│   ├── <span class="file">layout.tsx</span>          <span class="comment"># Root layout — fonts, theme init script</span>
+│   ├── <span class="file">page.tsx</span>            <span class="comment"># Main app (single + bulk flows)</span>
+│   ├── <span class="file">globals.css</span>         <span class="comment"># Design tokens, animations, dark mode</span>
+│   ├── <span class="dir">history/page.tsx</span>    <span class="comment"># History list</span>
+│   ├── <span class="dir">lp/[slug]/page.tsx</span>  <span class="comment"># Public landing page</span>
+│   └── <span class="dir">api/</span>
+│       ├── <span class="file">people/</span>         <span class="comment"># Exa people search</span>
+│       ├── <span class="file">signals/</span>        <span class="comment"># Signal search + duplicate check</span>
+│       ├── <span class="file">generate/</span>       <span class="comment"># Groq email + LP generation</span>
+│       ├── <span class="file">lp/</span>             <span class="comment"># LP create/update in Redis</span>
+│       ├── <span class="file">history/</span>        <span class="comment"># Redis history CRUD</span>
+│       ├── <span class="file">discover/</span>       <span class="comment"># ICP company discovery</span>
+│       └── <span class="dir">push/</span>
+│           ├── <span class="file">apollo/</span>     <span class="comment"># Apollo CRM push</span>
+│           └── <span class="file">slack/</span>      <span class="comment"># Slack webhook</span>
+│
+├── <span class="dir">components/</span>
+│   ├── <span class="file">BackgroundCanvas.tsx</span>   <span class="comment"># Fixed bg: dot grid + blobs + particles</span>
+│   ├── <span class="file">HeroBanner.tsx</span>         <span class="comment"># Hero section (idle state)</span>
+│   ├── <span class="file">Logo.tsx</span>               <span class="comment"># ECG mark + wordmark</span>
+│   ├── <span class="file">ThemeToggle.tsx</span>        <span class="comment"># Dark/light toggle (localStorage)</span>
+│   ├── <span class="file">EcgLoader.tsx</span>          <span class="comment"># ECG trace loading animation</span>
+│   ├── <span class="file">SettingsBar.tsx</span>        <span class="comment"># Sender profile</span>
+│   ├── <span class="file">ProspectForm.tsx</span>       <span class="comment"># Manual prospect entry</span>
+│   ├── <span class="file">PeoplePicker.tsx</span>       <span class="comment"># People grid</span>
+│   ├── <span class="file">CompanyDiscovery.tsx</span>   <span class="comment"># ICP / filter / CSV</span>
+│   ├── <span class="file">SignalPicker.tsx</span>       <span class="comment"># Signal cards</span>
+│   ├── <span class="file">SubjectLineVariants.tsx</span><span class="comment"># 3 subject line options</span>
+│   ├── <span class="file">QualityScores.tsx</span>      <span class="comment"># Animated score bars</span>
+│   ├── <span class="file">ReviewPanel.tsx</span>        <span class="comment"># Email + LP editor</span>
+│   ├── <span class="file">PushButton.tsx</span>         <span class="comment"># Push + warnings</span>
+│   └── <span class="file">HistoryTable.tsx</span>       <span class="comment"># History table</span>
+│
+├── <span class="dir">hooks/</span>
+│   └── <span class="file">useSettings.ts</span>         <span class="comment"># localStorage settings</span>
+├── <span class="dir">lib/</span>
+│   ├── <span class="file">claude.ts</span>  <span class="file">exa.ts</span>  <span class="file">apollo.ts</span>  <span class="file">slack.ts</span>
+│   ├── <span class="file">redis.ts</span>   <span class="file">slugify.ts</span>  <span class="file">fuzzy.ts</span>  <span class="file">logger.ts</span>
+├── <span class="dir">types/index.ts</span>             <span class="comment"># All shared TypeScript types</span>
+├── <span class="file">tailwind.config.ts</span>
+├── <span class="file">CLAUDE.md</span>                  <span class="comment"># Full project reference</span>
+└── <span class="file">session-archive.html</span>       <span class="comment"># This file</span>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ 6 — FLOW ════════════════════════════ -->
+<div class="section" id="flow">
+  <div class="section-header">
+    <div class="section-num">6</div>
+    <h2>App Flow</h2>
+  </div>
+  <h3>Single Prospect</h3>
+  <div class="steps">
+    <div class="step"><div class="step-content"><strong>Entry</strong><p>Type a company name — Exa finds decision-makers. Or enter prospect manually (name, company, email, LinkedIn).</p></div></div>
+    <div class="step"><div class="step-content"><strong>People picker</strong><p>Select which person to target from the Exa results grid.</p></div></div>
+    <div class="step"><div class="step-content"><strong>Signal picker</strong><p>Choose a buying signal (funding, news, hiring, personal activity) or skip to write without one.</p></div></div>
+    <div class="step"><div class="step-content"><strong>Generate</strong><p>Groq writes a personalised email + landing page + 3 subject line variants + quality scores (personalization, clarity, CTA).</p></div></div>
+    <div class="step"><div class="step-content"><strong>Review & edit</strong><p>Edit email body and LP content (headline, subheadline, body, CTA text + URL) inline.</p></div></div>
+    <div class="step"><div class="step-content"><strong>Push</strong><p>Pushes contact to Apollo CRM, enrols in sequence, and fires Slack webhook with scores + LP link.</p></div></div>
+  </div>
+
+  <h3>Bulk Mode</h3>
+  <div class="steps">
+    <div class="step"><div class="step-content"><strong>Find companies</strong><p>ICP description → AI finds matches. Or use filter builder (industry, size, location, funding). Or import CSV.</p></div></div>
+    <div class="step"><div class="step-content"><strong>Configure</strong><p>Set target role (CEO, VP Sales, etc.), auto-push toggle, minimum quality score threshold.</p></div></div>
+    <div class="step"><div class="step-content"><strong>Generate all</strong><p>Sequential processing with live progress table. Each row shows person found, subject line, scores, Apollo status.</p></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ 7 — DESIGN ══════════════════════════ -->
+<div class="section" id="design">
+  <div class="section-header">
+    <div class="section-num">7</div>
+    <h2>Design System</h2>
+  </div>
+
+  <h3>Color Tokens (CSS Variables)</h3>
+  <table>
+    <tr><th>Token</th><th>Light value</th><th>Dark value</th><th>Used for</th></tr>
+    <tr><td>--ink</td><td>#11143A</td><td>#ECEEFF</td><td>Primary text</td></tr>
+    <tr><td>--ink-2</td><td>#32366A</td><td>#C2C5F0</td><td>Secondary text</td></tr>
+    <tr><td>--ink-3</td><td>#555888</td><td>#9095D0</td><td>Labels, captions</td></tr>
+    <tr><td>--ink-4</td><td>#777AAA</td><td>#6668A8</td><td>Placeholders, subtle</td></tr>
+    <tr><td>--surface</td><td>#FFFFFF</td><td>#12142C</td><td>Card backgrounds</td></tr>
+    <tr><td>--input-bg</td><td>rgba(255,255,255,0.8)</td><td>rgba(20,22,48,0.85)</td><td>Input/field backgrounds</td></tr>
+    <tr><td>--input-border</td><td>rgba(165,180,252,0.45)</td><td>rgba(99,102,241,0.3)</td><td>Input/field borders</td></tr>
+    <tr><td>--background</td><td>#F0F3FF</td><td>#090B18</td><td>Page background</td></tr>
+  </table>
+
+  <h3>Dark Mode Rule (critical)</h3>
+  <p>Never use hardcoded light Tailwind colors in components. Always use CSS variable alternatives:</p>
+  <table>
+    <tr><th>❌ Don't use</th><th>✅ Use instead</th></tr>
+    <tr><td><code>bg-white</code></td><td><code>bg-[var(--surface)]</code></td></tr>
+    <tr><td><code>bg-white/50</code></td><td><code>bg-[var(--input-bg)]</code></td></tr>
+    <tr><td><code>bg-brand-50</code>, <code>bg-amber-50</code></td><td><code>bg-[var(--surface)]</code> + colored border</td></tr>
+    <tr><td><code>text-brand-700</code>, <code>text-amber-700</code></td><td><code>text-brand-400</code>, <code>text-amber-500</code></td></tr>
+    <tr><td>hardcoded <code>rgba(223,227,248,X)</code> borders</td><td><code>border-[var(--input-border)]</code></td></tr>
+  </table>
+
+  <h3>Key CSS Classes</h3>
+  <table>
+    <tr><th>Class</th><th>Effect</th></tr>
+    <tr><td>.glass</td><td>Frosted glass card — auto adapts to dark mode</td></tr>
+    <tr><td>.gradient-text</td><td>Animated indigo→violet gradient text</td></tr>
+    <tr><td>.card-shimmer</td><td>Shine sweep on hover</td></tr>
+    <tr><td>.card-lift</td><td>translateY(-2px) + shadow on hover</td></tr>
+    <tr><td>.live-ping</td><td>Pulsing dot (green status indicator)</td></tr>
+    <tr><td>.score-bar</td><td>Bar that animates from 0 on mount</td></tr>
+    <tr><td>.hero-ecg-path</td><td>ECG that draws itself once on load</td></tr>
+    <tr><td>.ecg-path</td><td>Looping ECG loader trace</td></tr>
+    <tr><td>.animate-fade-up</td><td>Fade + slide up entrance</td></tr>
+    <tr><td>.dark-tab-tray</td><td>Tab tray container — dark in dark mode</td></tr>
+    <tr><td>.dark-tab-active</td><td>Active tab — indigo tint in dark mode</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════ 8 — CHANGELOG ══════════════════════ -->
+<div class="section" id="changelog">
+  <div class="section-header">
+    <div class="section-num">8</div>
+    <h2>Full Changelog — This Session</h2>
+  </div>
+
+  <div class="change">
+    <span class="change-tag tag-new">NEW</span>
+    <div class="change-body"><strong>BackgroundCanvas.tsx</strong><p>Fixed-position layer with SVG dot grid, three animated gradient blobs (blob-tl / blob-br / blob-mid), 15 floating particles, 3 orbit rings.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-new">NEW</span>
+    <div class="change-body"><strong>HeroBanner.tsx</strong><p>Prominent hero card with large 3-line gradient headline, animated ECG background, live status pill, and 4 staggered feature pills.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-new">NEW</span>
+    <div class="change-body"><strong>ThemeToggle.tsx</strong><p>Sun/moon button in header. Sets data-theme on html element, persists to localStorage. No flash on reload via layout.tsx script.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-new">NEW</span>
+    <div class="change-body"><strong>Logo.tsx</strong><p>ECG QRS complex in indigo gradient square + "Signal" / "Trace" wordmark. Glow on hover.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>EcgLoader.tsx</strong><p>Larger (280px), glow duplicate path, oscilloscope Y-axis labels, scanning progress bar beneath trace.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>app/page.tsx — full redesign</strong><p>Glass cards, pill TabBar with dark-tab-tray/dark-tab-active, all inputs use CSS vars, BackgroundCanvas + HeroBanner integrated.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>CompanyDiscovery.tsx</strong><p>Completely rethemed from dark slate to light brand palette (was using bg-slate-800, text-slate-400 etc.).</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>tailwind.config.ts</strong><p>ink / ice / mist / surface colors now use CSS var() references so they auto-respond to dark mode.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>globals.css — full rewrite</strong><p>CSS design tokens (light + dark), blob animations, floating particles, orbit rings, ECG animations, glass class, gradient-text, all entrance animations.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-update">UPDATE</span>
+    <div class="change-body"><strong>layout.tsx</strong><p>Added theme-init script in head to prevent flash of wrong theme on reload.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-fix">FIX</span>
+    <div class="change-body"><strong>Dark mode — all components</strong><p>Replaced bg-white → bg-[var(--surface)], bg-white/X → bg-[var(--input-bg)], hardcoded amber/violet/brand light bgs → surface + colored border, text-*-700 → text-*-500 across all components.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-fix">FIX</span>
+    <div class="change-body"><strong>SettingsBar dark mode</strong><p>Card used bg-brand-50 (hardcoded light). Changed to bg-[var(--surface)] with indigo ring shadow.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-fix">FIX</span>
+    <div class="change-body"><strong>SignalPicker dark mode</strong><p>Badge bgs (bg-violet-50, bg-brand-50) and selected card (bg-brand-50/80) → surface + rgba(79,70,229,0.1). text-brand-700 → text-brand-400.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-fix">FIX</span>
+    <div class="change-body"><strong>CTA URL gate</strong><p>Groq ignores ctaUrl="" instruction and generates plausible URLs. Fix: always override result.landingPageContent.ctaUrl = sender.defaultCtaUrl after parsing.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-fix">FIX</span>
+    <div class="change-body"><strong>Text contrast (light mode)</strong><p>ink-3 was #9598BE (too light). ink-4 was #C4C6DC (barely visible). Darkened to #555888 and #777AAA for WCAG AA compliance.</p></div>
+  </div>
+  <div class="change">
+    <span class="change-tag tag-new">NEW</span>
+    <div class="change-body"><strong>Sender profile system</strong><p>useSettings hook, SettingsBar component, SenderContext passed to all generation. Sender company/name woven into email and LP prompts.</p></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ 9 — DECISIONS ═══════════════════════ -->
+<div class="section" id="decisions">
+  <div class="section-header">
+    <div class="section-num">9</div>
+    <h2>Key Technical Decisions</h2>
+  </div>
+  <table>
+    <tr><th>Decision</th><th>Rationale</th></tr>
+    <tr><td>CSS variables for semantic colors</td><td>Allows all Tailwind utilities (text-ink, bg-surface etc.) to flip automatically on data-theme change without touching every component.</td></tr>
+    <tr><td>ECG as the signature animation</td><td>Thematically perfect (SignalTrace), used sparingly in 3 places — loader, hero, logo — not scattered everywhere. Spends design boldness in one memorable element.</td></tr>
+    <tr><td>Glass morphism cards</td><td>Background blobs at z-0, glass cards at z-1 let the color bleed through subtly without distraction.</td></tr>
+    <tr><td>Groq llama-3.3-70b over OpenAI GPT</td><td>Faster inference, free tier, sufficient quality for email generation.</td></tr>
+    <tr><td>Override ctaUrl server-side</td><td>Never trust LLM to output a correct URL. After parsing, server always sets ctaUrl = sender.defaultCtaUrl. Gate in PushButton if empty.</td></tr>
+    <tr><td>Upstash Redis for LP storage</td><td>Serverless, no cold-start, REST API works in Next.js edge/serverless functions.</td></tr>
+    <tr><td>Plus Jakarta Sans (not Inter)</td><td>Slight techiness that maps to the precision-instrument character of the product. JetBrains Mono only in email textareas.</td></tr>
+    <tr><td>Sequential bulk processing</td><td>Avoids rate-limit hammering Exa/Groq/Apollo APIs. User sees live progress per company.</td></tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════ 10 — SESSION LOG ════════════════════ -->
+<div class="section" id="session">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <h2>Session Conversation Log</h2>
+  </div>
+  <div class="chat">
+    <div class="msg user">Empty CTA URL gate — if you somehow generate without a CTA URL set, the Push button shows an amber warning and requires you to check "Continue without CTA URL" before it lets you push. It didn't do that.</div>
+    <div class="msg assistant">Root cause: Groq/LLaMA ignores the ctaUrl:"" instruction and generates its own plausible URL (e.g. Calendly link). Fixed by removing ctaUrl generation from the prompt entirely and having the server always override: result.landingPageContent.ctaUrl = sender.defaultCtaUrl ?? "" after parsing.</div>
+    <div class="msg user">Use skill.md to design the frontend design and make it the best possible professional design you can with logo of SignalTrace generated by you and some good light coloured theme it should look like edited by a professional designer and add some animations and visuals too</div>
+    <div class="msg assistant">Full redesign: Plus Jakarta Sans + JetBrains Mono fonts. Light ice/indigo palette with brand-600 (#4F46E5) as primary. ECG QRS logo mark. Glass morphism cards with backdrop-blur. EcgLoader replacing spinners. Animated score bars. Pill-style tabs. All components rethemed.</div>
+    <div class="msg user">Can you make it look more good and comprehensive design add some background animations and visuals. please</div>
+    <div class="msg assistant">Created BackgroundCanvas (dot grid + 3 gradient blobs + 15 floating particles + 3 orbit rings). Created HeroBanner (ECG draws itself + big tagline + feature pills). Integrated both into page.tsx. Updated EcgLoader with glow duplicate path.</div>
+    <div class="msg user">This box is not that widely visible, also the header line make it more prominently visible "Find the signal. Write the email. Push the lead." this line. Also add button of dark and light theme to choose from and add more animation that looks professional in bg</div>
+    <div class="msg assistant">HeroBanner redesigned to tall card with 3-line gradient headline at text-3xl/4xl. ThemeToggle added to header (sun/moon, localStorage). Full dark mode CSS variable system implemented. CompanyDiscovery rethemed from dark slate to light brand palette.</div>
+    <div class="msg user">Can you make text look more visible, grey font is not visible at all</div>
+    <div class="msg assistant">Darkened all ink tokens in light mode: ink-3 #9598BE→#555888, ink-4 #C4C6DC→#777AAA. Fixed dark mode text tokens too (ink-3 was too dark for dark backgrounds). All changes via CSS variables — affects every component automatically.</div>
+    <div class="msg user">Not readable in dark theme</div>
+    <div class="msg assistant">Root cause: bg-white creates light surfaces but text-ink in dark mode is near-white (#ECEEFF). Fixed across 9 files: bg-white→bg-[var(--surface)], bg-white/X→bg-[var(--input-bg)], all borders→var(--input-border), table rows, tab trays, textarea, all amber/red warnings.</div>
+    <div class="msg user">Set up your sender profile box still not visible in dark mode and signal visual too is still in light mode even after switching to dark</div>
+    <div class="msg assistant">SettingsBar: bg-brand-50 (hardcoded #EEF2FF) → bg-[var(--surface)]. SignalPicker: badge bgs bg-violet-50/bg-brand-50 → bg-[var(--surface)], selected card bg-brand-50/80 → bg-[rgba(79,70,229,0.1)], text-brand-700 → text-brand-400. All amber warnings → surface + amber-500 text.</div>
+    <div class="msg user">Not able to open</div>
+    <div class="msg assistant">Too many stale Node processes on ports 3000–3004. Fix: taskkill /f /im node.exe then npm run dev. Server started fresh on port 3005.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ 11 — TROUBLESHOOT ═══════════════════ -->
+<div class="section" id="troubleshoot">
+  <div class="section-header">
+    <div class="section-num">11</div>
+    <h2>Troubleshooting</h2>
+  </div>
+  <table>
+    <tr><th>Problem</th><th>Fix</th></tr>
+    <tr><td>Port conflict / app won't open</td><td><code>taskkill /f /im node.exe</code> then <code>npm run dev</code></td></tr>
+    <tr><td>"Module not found"</td><td><code>npm install</code></td></tr>
+    <tr><td>Dark mode flash on reload</td><td>Check the &lt;script&gt; tag is in layout.tsx inside &lt;head&gt; before body</td></tr>
+    <tr><td>CTA URL warning not showing</td><td>Verify sender.defaultCtaUrl is empty string "" not undefined in lib/claude.ts override</td></tr>
+    <tr><td>Dark mode: white boxes visible</td><td>Check the component isn't using bg-white, bg-brand-50, or bg-*-50 — replace with bg-[var(--surface)]</td></tr>
+    <tr><td>Text invisible in dark mode</td><td>Check for text-*-700 (dark text on dark bg) — replace with text-*-400 or text-*-500</td></tr>
+    <tr><td>Groq rate limit error</td><td>Wait 60 seconds — free tier has RPM limits on llama-3.3-70b-versatile</td></tr>
+    <tr><td>Apollo push fails</td><td>Check APOLLO_API_KEY is set and valid in .env.local</td></tr>
+    <tr><td>Redis errors</td><td>Check UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in .env.local</td></tr>
+    <tr><td>TypeScript errors</td><td>Run <code>npx tsc --noEmit</code> to see all errors. Most common: missing prop types in components.</td></tr>
+    <tr><td>Animations not playing</td><td>Check globals.css has the keyframe and class defined. Check component uses the class name exactly.</td></tr>
+  </table>
+</div>
+
+<div class="footer">
+  Built with <strong>Claude Sonnet 4.6</strong> · SignalTrace v0.1.0 · June 2026
+  <br/><br/>
+  Project path: <code>C:\Users\LENOVO\Downloads\SignalTrace</code>
+</div>
+
+</div><!-- /container -->
+</body>
+</html>
