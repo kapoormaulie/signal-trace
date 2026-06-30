@@ -466,6 +466,86 @@
 }
 
 /* ═══════════════════════════════════════════════
+   HERO DEMO ANIMATIONS
+   ═══════════════════════════════════════════════ */
+
+@keyframes row-appear {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.row-appear {
+  animation: row-appear 0.38s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+
+@keyframes signal-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.signal-slide-up {
+  animation: signal-slide-up 0.42s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+}
+
+@keyframes signal-ring-pulse {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.signal-ring {
+  animation: signal-ring-pulse 1.4s ease-out infinite;
+}
+
+@keyframes email-compose-line {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.cursor-blink { animation: cursor-blink 0.9s step-end infinite; }
+
+@keyframes rocket-lift {
+  0%   { transform: translateY(0px) rotate(-40deg); opacity: 1; }
+  60%  { transform: translateY(-48px) rotate(-40deg); opacity: 1; }
+  100% { transform: translateY(-90px) rotate(-40deg); opacity: 0; }
+}
+.rocket-lift {
+  animation: rocket-lift 1.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes trail-shrink {
+  0%   { height: 28px; opacity: 0.5; }
+  100% { height: 0px;  opacity: 0; }
+}
+.rocket-trail {
+  animation: trail-shrink 1.4s ease-out forwards;
+}
+
+@keyframes success-pop {
+  0%   { opacity: 0; transform: scale(0.6); }
+  70%  { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.success-pop {
+  animation: success-pop 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+
+@keyframes bar-grow {
+  from { width: 0; }
+  to   { width: var(--bar-w); }
+}
+.bar-grow {
+  animation: bar-grow 0.7s cubic-bezier(0.34, 1.1, 0.64, 1) forwards;
+  animation-delay: var(--bar-delay, 0ms);
+}
+
+@keyframes demo-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.demo-fade-in { animation: demo-fade-in 0.3s ease forwards; }
+
+/* ═══════════════════════════════════════════════
    SCROLLBAR
    ═══════════════════════════════════════════════ */
 
