@@ -38,7 +38,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
   function tabCls(active: boolean) {
     return `px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
       active
-        ? "bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
+        ? "bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
         : "text-ink-3 hover:text-ink-2"
     }`;
   }
@@ -138,7 +138,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
           <h3 className="text-sm font-bold text-ink">Find companies to target</h3>
           <p className="text-[11px] text-ink-3 mt-0.5">ICP match · Filter builder · CSV import</p>
         </div>
-        <div className="flex gap-1 bg-white/50 backdrop-blur-sm rounded-xl p-1 border border-[rgba(223,227,248,0.6)]">
+        <div className="flex gap-1 bg-[var(--input-bg)] rounded-xl p-1 border border-[var(--input-border)]">
           <button className={tabCls(tab === "icp")}    onClick={() => { setTab("icp");     setResults([]); }}>ICP match</button>
           <button className={tabCls(tab === "filters")} onClick={() => { setTab("filters"); setResults([]); }}>Filter builder</button>
           <button className={tabCls(tab === "csv")}    onClick={() => { setTab("csv");     setResults([]); }}>Import CSV</button>
