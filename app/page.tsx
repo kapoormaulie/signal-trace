@@ -734,6 +734,9 @@ export default function HomePage() {
         {/* ── Main content ──────────────────────────────────── */}
         <main className="max-w-4xl mx-auto px-6 py-8">
 
+          {/* Hero — always visible at the top */}
+          <HeroBanner />
+
           {/* Setup tab bar — settings + integrations only */}
           <SetupTabBar
             tab={tab}
@@ -786,11 +789,6 @@ export default function HomePage() {
                 <div className="rounded-xl border border-red-400/40 bg-[var(--surface)] px-4 py-3 text-sm text-red-500 font-medium animate-fade-up">
                   {error}
                 </div>
-              )}
-
-              {/* Hero banner — only on idle, first time */}
-              {stage === "idle" && (
-                <HeroBanner />
               )}
 
               {/* Entry form */}
