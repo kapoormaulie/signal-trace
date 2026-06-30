@@ -2,8 +2,8 @@ import Groq from "groq-sdk";
 import type { GenerationResult, ProspectInput, Signal } from "@/types";
 import { log } from "@/lib/logger";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 const MODEL = "llama-3.3-70b-versatile";
+function groq() { return new Groq({ apiKey: process.env.GROQ_API_KEY! }); }
 
 export interface SenderContext {
   senderCompany: string;
@@ -88,7 +88,7 @@ export async function generateEmail(
 ): Promise<GenerationResult> {
   const startedAt = Date.now();
 
-  const response = await groq.chat.completions.create({
+  const response = await groq().chat.completions.create({
     model: MODEL,
     max_tokens: 2048,
     temperature: 0.7,

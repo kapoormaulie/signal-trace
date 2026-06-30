@@ -1,7 +1,11 @@
 import Exa from "exa-js";
 import type { Signal, PersonResult } from "@/types";
 
-const exa = new Exa(process.env.EXA_API_KEY!);
+let _exa: Exa | undefined;
+function exa(): Exa {
+  if (!_exa) _exa = new Exa(process.env.EXA_API_KEY!);
+  return _exa;
+}
 
 function sixMonthsAgo(): string {
   const d = new Date();
@@ -10,7 +14,7 @@ function sixMonthsAgo(): string {
 }
 
 export async function fetchCompanySignals(company: string): Promise<Signal[]> {
-  const response = await exa.searchAndContents(
+  const response = await exa().searchAndContents(
     `${company} funding launch product announcement news`,
     {
       numResults: 8,
@@ -46,7 +50,7 @@ function parseLinkedInTitle(title: string): string {
 
 export async function fetchPeopleAtCompany(company: string, roleQuery?: string): Promise<PersonResult[]> {
   const roles = roleQuery ?? "CEO founder VP director head president";
-  const response = await exa.searchAndContents(
+  const response = await exa().searchAndContents(
     `${roles} at ${company}`,
     {
       numResults: 10,
@@ -111,7 +115,7 @@ export async function findPersonEmail(
 
   const results = await Promise.allSettled(
     queries.map((q) =>
-      exa.searchAndContents(q, {
+      exa().searchAndContents(q, {
         numResults: 4,
         type: "neural",
         text: { maxCharacters: 1500 },
@@ -130,7 +134,7 @@ export async function findPersonEmail(
 
   // Also search the person's own LinkedIn page text if we have it
   if (linkedinUrl) {
-    const liFetch = await exa.searchAndContents(
+    const liFetch = await exa().searchAndContents(
       `${firstName} ${lastName} ${company} email`,
       { numResults: 3, includeDomains: ["contactout.com", "rocketreach.co", "hunter.io"], type: "neural", text: { maxCharacters: 1000 } }
     ).catch(() => null);
@@ -141,7 +145,7 @@ export async function findPersonEmail(
 }
 
 export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]> {
-  const response = await exa.findSimilarAndContents(linkedinUrl, {
+  const response = await exa().findSimilarAndContents(linkedinUrl, {
     numResults: 5,
     summary: {
       query:
