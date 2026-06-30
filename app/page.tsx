@@ -722,10 +722,44 @@ export default function HomePage() {
         >
           <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
             <Logo />
-            <nav className="flex items-center gap-4">
+            <nav className="flex items-center gap-3">
               <Link href="/history" className="text-xs font-semibold text-ink-3 hover:text-ink transition-colors">
                 History
               </Link>
+
+              {/* Divider */}
+              <span className="w-px h-4 bg-[var(--mist)]" />
+
+              {/* Sender profile */}
+              <button
+                onClick={() => { setTab(tab === "settings" ? "single" : "settings"); setState(INITIAL); }}
+                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                  tab === "settings" ? "text-brand-600" : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                Sender profile
+                {!isConfigured && tab !== "settings" && (
+                  <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
+                    Recommended
+                  </span>
+                )}
+              </button>
+
+              {/* Integrations */}
+              <button
+                onClick={() => { setTab(tab === "integrations" ? "single" : "integrations"); setState(INITIAL); }}
+                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
+                  tab === "integrations" ? "text-brand-600" : "text-ink-3 hover:text-ink"
+                }`}
+              >
+                Integrations
+                {!settings.apolloApiKey && tab !== "integrations" && (
+                  <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
+                    Required
+                  </span>
+                )}
+              </button>
+
               <ThemeToggle />
             </nav>
           </div>
@@ -737,34 +771,48 @@ export default function HomePage() {
           {/* Hero — always visible at the top */}
           <HeroBanner />
 
-          {/* Setup tab bar — settings + integrations only */}
-          <SetupTabBar
-            tab={tab}
-            onChange={(t) => { setTab(t); setState(INITIAL); }}
-            showSettingsBadge={!isConfigured}
-            showIntegrationsBadge={!settings.apolloApiKey}
-          />
-
           {/* ── SETTINGS ─────────────────────────────────── */}
           {tab === "settings" && settingsLoaded && (
-            <SettingsBar
-              settings={settings}
-              onSave={(patch) => { saveSettings(patch); setTab("single"); }}
-              isConfigured={isConfigured}
-              forceOpen
-              showSection="profile"
-            />
+            <>
+              <button
+                onClick={() => { setTab("single"); setState(INITIAL); }}
+                className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors mb-4"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Back
+              </button>
+              <SettingsBar
+                settings={settings}
+                onSave={(patch) => { saveSettings(patch); setTab("single"); }}
+                isConfigured={isConfigured}
+                forceOpen
+                showSection="profile"
+              />
+            </>
           )}
 
           {/* ── INTEGRATIONS ──────────────────────────────── */}
           {tab === "integrations" && settingsLoaded && (
-            <SettingsBar
-              settings={settings}
-              onSave={(patch) => { saveSettings(patch); setTab("single"); }}
-              isConfigured={isConfigured}
-              forceOpen
-              showSection="integrations"
-            />
+            <>
+              <button
+                onClick={() => { setTab("single"); setState(INITIAL); }}
+                className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors mb-4"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Back
+              </button>
+              <SettingsBar
+                settings={settings}
+                onSave={(patch) => { saveSettings(patch); setTab("single"); }}
+                isConfigured={isConfigured}
+                forceOpen
+                showSection="integrations"
+              />
+            </>
           )}
 
           {/* Mode switcher + content — only visible when not on a setup tab */}
