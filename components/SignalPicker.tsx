@@ -124,7 +124,7 @@ function Section({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="text-[11px] text-brand-500 hover:text-brand-700 truncate max-w-[260px] transition-colors"
+                  className="text-[11px] text-brand-500 hover:text-brand-400 truncate max-w-[260px] transition-colors"
                 >
                   {sig.url.replace(/^https?:\/\/(www\.)?/, "")}
                 </a>

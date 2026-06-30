@@ -73,7 +73,7 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
         </div>
         <button
           onClick={() => setOpen(true)}
-          className="text-brand-600 hover:text-brand-700 font-medium transition-colors ml-4 shrink-0"
+          className="text-brand-600 hover:text-brand-400 font-medium transition-colors ml-4 shrink-0"
         >
           Edit settings
         </button>

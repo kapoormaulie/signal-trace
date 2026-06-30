@@ -17,7 +17,7 @@ export default function SubjectLineVariants({ subjects, selected, onSelect }: Pr
           onClick={() => onSelect(i)}
           className={`w-full text-left rounded-xl border px-4 py-3.5 transition-all card-lift ${
             selected === i
-              ? "border-brand-400 bg-brand-50 shadow-signal-sm"
+              ? "border-brand-400 bg-[rgba(99,102,241,0.08)] shadow-signal-sm"
               : "border-mist bg-[var(--surface)] shadow-card hover:border-brand-300"
           }`}
         >
@@ -30,11 +30,11 @@ export default function SubjectLineVariants({ subjects, selected, onSelect }: Pr
               }`}
             >
               {selected === i && (
-                <span className="w-2 h-2 rounded-full bg-white" />
+                <span className="w-2 h-2 rounded-full bg-[var(--surface)]" />
               )}
             </span>
             <div>
-              <p className={`text-sm font-semibold leading-snug ${selected === i ? "text-brand-700" : "text-ink"}`}>
+              <p className={`text-sm font-semibold leading-snug ${selected === i ? "text-brand-500" : "text-ink"}`}>
                 {s.text}
               </p>
               <p className="text-xs text-ink-3 mt-1 leading-relaxed">{s.reasoning}</p>

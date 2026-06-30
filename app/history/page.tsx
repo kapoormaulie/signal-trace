@@ -21,9 +21,9 @@ export default function HistoryPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-ice">
+    <div className="min-h-screen" style={{ background: "var(--background)" }}>
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-mist">
+      <header className="sticky top-0 z-40 backdrop-blur-md border-b" style={{ background: "var(--header-bg)", borderColor: "var(--header-border)" }}>
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link href="/">
             <Logo />
@@ -48,7 +48,7 @@ export default function HistoryPage() {
         {loading && <EcgLoader label="Loading history…" />}
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 font-medium">
+          <div className="rounded-xl border border-red-400/40 bg-[rgba(239,68,68,0.06)] px-4 py-3 text-sm text-red-500 font-medium">
             {error}
           </div>
         )}

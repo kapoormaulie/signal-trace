@@ -255,7 +255,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
             </p>
             <div className="flex gap-3">
               <button onClick={() => setSelected(new Set(results.map((c) => c.name)))}
-                className="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors">
+                className="text-xs text-brand-600 hover:text-brand-400 font-semibold transition-colors">
                 Select all
               </button>
               <button onClick={() => setSelected(new Set())}
@@ -279,7 +279,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <p className="text-xs font-bold text-ink">{c.name}</p>
                   {selected.has(c.name) && (
-                    <span className="shrink-0 text-[10px] font-bold text-brand-600 bg-brand-100 rounded px-1">✓</span>
+                    <span className="shrink-0 text-[10px] font-bold text-brand-500 bg-[rgba(99,102,241,0.12)] rounded px-1">✓</span>
                   )}
                 </div>
                 <p className="text-[11px] text-ink-3 leading-relaxed line-clamp-2">{c.description}</p>

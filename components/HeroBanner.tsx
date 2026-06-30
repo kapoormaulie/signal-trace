@@ -139,8 +139,8 @@ export default function HeroBanner() {
           </div>
         </div>
 
-        {/* ── RIGHT: animated demo card ───────────────────────────────── */}
-        <div className="lg:w-[350px] w-full shrink-0">
+        {/* ── RIGHT: animated demo card — hidden on mobile ──────────── */}
+        <div className="hidden lg:block lg:w-[350px] shrink-0">
           <div
             className="rounded-2xl overflow-hidden"
             style={{

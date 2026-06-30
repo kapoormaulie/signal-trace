@@ -146,14 +146,14 @@ function SetupTabBar({
         </button>
       )}
 
-      <div className="dark-tab-tray flex gap-1 bg-white/50 backdrop-blur-sm rounded-xl p-1 w-fit border border-[rgba(223,227,248,0.7)] shadow-sm">
+      <div className="dark-tab-tray flex gap-1 bg-[var(--input-bg)] rounded-xl p-1 w-fit border border-[var(--input-border)]">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => onChange(id === tab ? "single" : id)}
             className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
               tab === id
-                ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
+                ? "dark-tab-active bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
                 : "text-ink-3 hover:text-ink-2"
             }`}
           >
@@ -227,13 +227,13 @@ function EntryPanel({
   return (
     <div className={`${GLASS} p-6 animate-fade-up card-shimmer`}>
       {/* Inner tabs */}
-      <div className="dark-tab-tray flex gap-1 mb-5 bg-white/40 backdrop-blur-sm rounded-xl p-1 w-fit border border-[rgba(223,227,248,0.6)]">
+      <div className="dark-tab-tray flex gap-1 mb-5 bg-[var(--input-bg)] rounded-xl p-1 w-fit border border-[var(--input-border)]">
         {(["company", "manual"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-1 rounded-lg text-xs font-semibold transition-all ${
-              tab === t ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.7)]" : "text-ink-3 hover:text-ink-2"
+              tab === t ? "dark-tab-active bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]" : "text-ink-3 hover:text-ink-2"
             }`}
           >
             {t === "company" ? "Find by company" : "Enter manually"}
@@ -343,10 +343,10 @@ function BulkSection({
   const total  = rows.length;
 
   const statusCfg: Record<BulkRowStatus, { cls: string; label: string }> = {
-    queued:     { cls: "bg-ink-4/20 text-ink-3",        label: "—" },
-    processing: { cls: "bg-brand-100 text-brand-600",    label: "…" },
-    done:       { cls: "bg-emerald-100 text-emerald-700", label: "✓" },
-    error:      { cls: "bg-red-100 text-red-600",         label: "✗" },
+    queued:     { cls: "bg-[var(--input-bg)] text-ink-3",                label: "—" },
+    processing: { cls: "bg-[rgba(99,102,241,0.12)] text-brand-500",      label: "…" },
+    done:       { cls: "bg-[rgba(16,185,129,0.12)] text-emerald-500",    label: "✓" },
+    error:      { cls: "bg-[rgba(239,68,68,0.12)] text-red-500",         label: "✗" },
   };
 
   return (
@@ -363,14 +363,14 @@ function BulkSection({
           {/* Target role */}
           <div>
             <label className="block text-xs font-medium text-ink-2 mb-2.5">Who to target</label>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
               {(Object.keys(ROLE_LABELS) as TargetRole[]).map((role) => (
                 <button
                   key={role}
                   onClick={() => setOptions((o) => ({ ...o, targetRole: role }))}
                   className={`text-center px-2 py-2 rounded-xl border text-xs font-medium transition-all card-lift ${
                     options.targetRole === role
-                      ? "border-brand-400 bg-brand-50/80 text-brand-700 shadow-signal-sm"
+                      ? "border-brand-400 bg-[rgba(99,102,241,0.1)] text-brand-500 shadow-signal-sm"
                       : "border-[var(--input-border)] text-ink-3 hover:border-brand-300 hover:text-ink-2 bg-[var(--input-bg)]"
                   }`}
                 >
@@ -381,14 +381,14 @@ function BulkSection({
           </div>
 
           {/* Auto-push + min score */}
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-medium text-ink-2 mb-2">Auto-push to Apollo</label>
               <button
                 onClick={() => setOptions((o) => ({ ...o, autoPush: !o.autoPush }))}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-semibold transition-all ${
                   options.autoPush
-                    ? "border-emerald-300 bg-emerald-50/80 text-emerald-700"
+                    ? "border-emerald-400 bg-[rgba(16,185,129,0.1)] text-emerald-500"
                     : "border-[var(--input-border)] text-ink-3 bg-[var(--input-bg)]"
                 }`}
               >
@@ -485,7 +485,8 @@ function BulkSection({
       {/* Results table */}
       {rows.length > 0 && (
         <div className={`${GLASS} overflow-hidden`}>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-[var(--input-border)] bg-[var(--input-bg)]">
                 {["Company", "Person", "Subject line", "P·C·CTA", "Apollo", ""].map((h) => (
@@ -504,7 +505,7 @@ function BulkSection({
                       key={row.company}
                       className={`border-b border-[var(--input-border)] transition-colors ${
                         idx % 2 === 1 ? "bg-transparent" : "bg-[var(--input-bg)]"
-                      } hover:bg-brand-50/30`}
+                      } hover:bg-[rgba(99,102,241,0.05)]`}
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -586,6 +587,7 @@ function BulkSection({
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
@@ -596,6 +598,7 @@ function BulkSection({
 export default function HomePage() {
   const [tab, setTab] = useState<PageTab>("single");
   const [state, setState] = useState<AppState>(INITIAL);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const update = (patch: Partial<AppState>) => setState((prev) => ({ ...prev, ...patch }));
   const { settings, save: saveSettings, loaded: settingsLoaded, isConfigured } = useSettings();
 
@@ -717,7 +720,7 @@ export default function HomePage() {
 
           {/* Drawer panel */}
           <div
-            className="w-[440px] max-w-[92vw] h-full flex flex-col panel-slide-in"
+            className="w-full sm:w-[440px] sm:max-w-[92vw] h-full flex flex-col panel-slide-in"
             style={{
               background: "var(--surface)",
               borderLeft: "1px solid var(--input-border)",
@@ -773,53 +776,89 @@ export default function HomePage() {
             borderColor: "var(--header-border)",
           }}
         >
-          <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
             <Logo />
-            <nav className="flex items-center gap-3">
+
+            {/* Desktop nav — hidden on mobile */}
+            <nav className="hidden sm:flex items-center gap-3">
               <Link href="/history" className="text-xs font-semibold text-ink-3 hover:text-ink transition-colors">
                 History
               </Link>
-
-              {/* Divider */}
               <span className="w-px h-4 bg-[var(--mist)]" />
-
-              {/* Sender profile */}
               <button
                 onClick={() => { setTab(tab === "settings" ? "single" : "settings"); setState(INITIAL); }}
-                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
-                  tab === "settings" ? "text-brand-600" : "text-ink-3 hover:text-ink"
-                }`}
+                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${tab === "settings" ? "text-brand-600" : "text-ink-3 hover:text-ink"}`}
               >
                 Sender profile
                 {!isConfigured && tab !== "settings" && (
-                  <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
-                    Recommended
-                  </span>
+                  <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">Recommended</span>
                 )}
               </button>
-
-              {/* Integrations */}
               <button
                 onClick={() => { setTab(tab === "integrations" ? "single" : "integrations"); setState(INITIAL); }}
-                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${
-                  tab === "integrations" ? "text-brand-600" : "text-ink-3 hover:text-ink"
-                }`}
+                className={`flex items-center gap-1.5 text-xs font-semibold transition-colors ${tab === "integrations" ? "text-brand-600" : "text-ink-3 hover:text-ink"}`}
               >
                 Integrations
                 {!settings.apolloApiKey && tab !== "integrations" && (
-                  <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
-                    Required
-                  </span>
+                  <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">Required</span>
                 )}
               </button>
-
               <ThemeToggle />
             </nav>
+
+            {/* Mobile nav — theme toggle + hamburger */}
+            <div className="flex sm:hidden items-center gap-2">
+              <ThemeToggle />
+              <button
+                onClick={() => setMobileMenuOpen((v) => !v)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-3 hover:text-ink hover:bg-[var(--input-bg)] transition-all"
+                aria-label="Menu"
+              >
+                {mobileMenuOpen ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                )}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile dropdown */}
+          {mobileMenuOpen && (
+            <div className="sm:hidden border-t px-4 py-2" style={{ background: "var(--header-bg)", borderColor: "var(--header-border)" }}>
+              <Link
+                href="/history"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center h-10 px-3 rounded-lg text-sm font-medium text-ink-2 hover:bg-[var(--input-bg)] transition-colors"
+              >
+                History
+              </Link>
+              <button
+                onClick={() => { setTab(tab === "settings" ? "single" : "settings"); setState(INITIAL); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between h-10 px-3 rounded-lg text-sm font-medium text-ink-2 hover:bg-[var(--input-bg)] transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  Sender profile
+                  {!isConfigured && <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">Recommended</span>}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L9 6L4 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+              <button
+                onClick={() => { setTab(tab === "integrations" ? "single" : "integrations"); setState(INITIAL); setMobileMenuOpen(false); }}
+                className="w-full flex items-center justify-between h-10 px-3 rounded-lg text-sm font-medium text-ink-2 hover:bg-[var(--input-bg)] transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  Integrations
+                  {!settings.apolloApiKey && <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">Required</span>}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L9 6L4 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </button>
+            </div>
+          )}
         </header>
 
         {/* ── Main content ──────────────────────────────────── */}
-        <main className="max-w-4xl mx-auto px-6 py-8">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
           {/* Hero — always visible at the top */}
           <HeroBanner />
@@ -876,9 +915,8 @@ export default function HomePage() {
                 <div
                   className="flex items-center justify-between rounded-xl px-4 py-2.5 animate-fade-up"
                   style={{
-                    background: "rgba(238,242,255,0.75)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid rgba(165,180,252,0.4)",
+                    background: "var(--surface)",
+                    border: "1px solid rgba(99,102,241,0.25)",
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -905,7 +943,7 @@ export default function HomePage() {
                     {duplicate.name} at {duplicate.company} was contacted on {new Date(duplicate.contactedAt).toLocaleDateString()}.
                   </p>
                   <div className="flex gap-3">
-                    <button onClick={() => update({ dupDismissed: true })} className="text-xs font-semibold text-amber-700 border border-amber-300 hover:border-amber-400 rounded-lg px-3 py-1.5 transition-colors">
+                    <button onClick={() => update({ dupDismissed: true })} className="text-xs font-semibold text-amber-500 border border-amber-400/50 hover:border-amber-400 rounded-lg px-3 py-1.5 transition-colors">
                       Continue anyway
                     </button>
                     <Link href="/history" className="text-xs text-ink-2 hover:text-ink self-center transition-colors font-medium">
@@ -945,7 +983,7 @@ export default function HomePage() {
                 <div className="space-y-4 animate-fade-up">
                   {/* Scores + angle */}
                   <div className={`${GLASS} p-6`}>
-                    <div className="grid grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       <div>
                         <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-[0.08em] mb-3">Quality scores</h3>
                         <QualityScores scores={generation.scores} />

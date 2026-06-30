@@ -67,7 +67,7 @@ export default function EcgLoader({
       </div>
 
       {/* Scanning bar */}
-      <div className="w-48 h-0.5 rounded-full bg-brand-100 overflow-hidden">
+      <div className="w-48 h-0.5 rounded-full bg-[rgba(99,102,241,0.15)] overflow-hidden">
         <div
           className="h-full rounded-full bg-gradient-to-r from-brand-400 to-violet-400"
           style={{

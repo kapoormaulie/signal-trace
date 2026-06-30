@@ -23,10 +23,10 @@ function relativeDate(iso: string): string {
 function ScorePill({ score }: { score: number }) {
   const cls =
     score >= 8
-      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+      ? "bg-[rgba(16,185,129,0.1)] text-emerald-500 border border-emerald-400/30"
       : score >= 6
-      ? "bg-amber-50 text-amber-700 border border-amber-200"
-      : "bg-red-50 text-red-600 border border-red-200";
+      ? "bg-[rgba(251,191,36,0.1)] text-amber-500 border border-amber-400/30"
+      : "bg-[rgba(239,68,68,0.1)] text-red-500 border border-red-400/30";
   return (
     <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${cls}`}>
       {score}
@@ -38,7 +38,7 @@ export default function HistoryTable({ prospects }: Props) {
   if (prospects.length === 0) {
     return (
       <div className="rounded-2xl border border-mist bg-[var(--surface)] shadow-card py-16 text-center">
-        <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center mx-auto mb-4">
+        <div className="w-12 h-12 rounded-2xl bg-[rgba(99,102,241,0.08)] border border-brand-300/20 flex items-center justify-center mx-auto mb-4">
           <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
             <path d="M4 16 L10 16 L12.5 11 L15.5 21.5 L20 4.5 L24.5 23 L27 16 L29 16" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -72,7 +72,7 @@ export default function HistoryTable({ prospects }: Props) {
                 key={p.id}
                 className={`border-b border-mist/60 transition-colors ${
                   idx % 2 === 1 ? "bg-[var(--input-bg)]" : "bg-[var(--surface)]"
-                } ${unopened ? "!bg-red-50/60" : ""} hover:bg-brand-50/40`}
+                } ${unopened ? "!bg-[rgba(239,68,68,0.06)]" : ""} hover:bg-[rgba(99,102,241,0.05)]`}
               >
                 <td className="px-4 py-3">
                   <p className="font-semibold text-ink text-sm">{p.name}</p>
@@ -124,7 +124,7 @@ export default function HistoryTable({ prospects }: Props) {
                     href={p.lpUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors whitespace-nowrap"
+                    className="text-xs text-brand-500 hover:text-brand-400 font-medium transition-colors whitespace-nowrap"
                   >
                     View LP ↗
                   </a>

@@ -43,7 +43,7 @@ export default function PeoplePicker({ company, people, onSelect, onBack }: Prop
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {people.map((p) => (
           <button
             key={p.id}
@@ -62,7 +62,7 @@ export default function PeoplePicker({ company, people, onSelect, onBack }: Prop
                   <p className="text-[11px] text-ink-4 mt-1">email not found</p>
                 )}
               </div>
-              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 border border-brand-200">
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[rgba(99,102,241,0.08)] text-brand-500 border border-brand-300/30">
                 LinkedIn
               </span>
             </div>

@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SignalTrace — Architecture Diagram</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080A17;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px 80px;
+  }
+
+  h1 {
+    color: #C2C5F0;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    margin-top: 8px;
+  }
+  .subtitle {
+    color: #4A4D78;
+    font-size: 12px;
+    margin-bottom: 48px;
+  }
+
+  .diagram {
+    width: 100%;
+    max-width: 1100px;
+  }
+
+  /* ── ROW LAYOUT ── */
+  .row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+  }
+  .row + .row { margin-top: 0; }
+
+  /* ── LAYER LABELS ── */
+  .layer-label {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #2E3158;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: translateY(-50%) rotate(180deg);
+  }
+
+  /* ── BOXES ── */
+  .box {
+    border-radius: 14px;
+    padding: 14px 18px;
+    position: relative;
+  }
+
+  /* User layer */
+  .layer-user {
+    background: linear-gradient(135deg, #1A1C3A 0%, #12142B 100%);
+    border: 1px solid rgba(99,102,241,0.3);
+    width: 100%;
+    padding: 20px 24px;
+    border-radius: 16px;
+    margin-bottom: 0;
+  }
+  .layer-user .layer-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #6366F1; margin-bottom: 12px;
+  }
+  .component-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .component-chip {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 8px;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #A5B4FC;
+    white-space: nowrap;
+  }
+  .component-chip.green {
+    background: rgba(52,211,153,0.08);
+    border-color: rgba(52,211,153,0.2);
+    color: #6EE7B7;
+  }
+  .component-chip.violet {
+    background: rgba(167,139,250,0.08);
+    border-color: rgba(167,139,250,0.2);
+    color: #C4B5FD;
+  }
+  .component-chip.amber {
+    background: rgba(252,211,77,0.08);
+    border-color: rgba(252,211,77,0.2);
+    color: #FCD34D;
+  }
+
+  /* Arrow between layers */
+  .arrow-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0;
+    position: relative;
+  }
+  .arrow-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .arrow-line {
+    width: 1.5px;
+    background: linear-gradient(to bottom, rgba(99,102,241,0.5), rgba(99,102,241,0.15));
+    flex: 1;
+  }
+  .arrow-label {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #4A4D78;
+    white-space: nowrap;
+    padding: 3px 8px;
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 20px;
+    background: rgba(99,102,241,0.06);
+    margin: 6px 0;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid rgba(99,102,241,0.4);
+  }
+
+  /* API Layer */
+  .layer-api {
+    background: linear-gradient(135deg, #0F1128 0%, #0C0E20 100%);
+    border: 1px solid rgba(79,70,229,0.25);
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: 100%;
+  }
+  .layer-api .layer-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #4F46E5; margin-bottom: 12px;
+  }
+  .route-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+  }
+  .route-chip {
+    background: rgba(15,17,40,0.8);
+    border: 1px solid rgba(79,70,229,0.2);
+    border-radius: 9px;
+    padding: 7px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .route-chip .method {
+    font-size: 9px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #4F46E5;
+  }
+  .route-chip .path {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px; color: #818CF8;
+  }
+  .route-chip .desc {
+    font-size: 10px; color: #3E4170; margin-top: 1px;
+  }
+
+  /* Services row */
+  .services-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    width: 100%;
+    margin-top: 0;
+  }
+  .service-card {
+    border-radius: 14px;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .service-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    padding: 1px;
+    background: var(--border-grad);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .svc-exa    { background: #0B1020; --border-grad: linear-gradient(135deg, rgba(99,102,241,0.4), rgba(99,102,241,0.1)); }
+  .svc-groq   { background: #0D1008; --border-grad: linear-gradient(135deg, rgba(52,211,153,0.4), rgba(52,211,153,0.1)); }
+  .svc-apollo { background: #120E08; --border-grad: linear-gradient(135deg, rgba(251,146,60,0.4), rgba(251,146,60,0.1)); }
+  .svc-slack  { background: #0D1008; --border-grad: linear-gradient(135deg, rgba(74,222,128,0.4), rgba(74,222,128,0.1)); }
+  .svc-redis  { background: #130808; --border-grad: linear-gradient(135deg, rgba(248,113,113,0.4), rgba(248,113,113,0.1)); }
+
+  .svc-icon {
+    font-size: 22px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .svc-name {
+    font-size: 12px; font-weight: 800; letter-spacing: -0.01em;
+  }
+  .svc-exa    .svc-name { color: #818CF8; }
+  .svc-groq   .svc-name { color: #34D399; }
+  .svc-apollo .svc-name { color: #FB923C; }
+  .svc-slack  .svc-name { color: #4ADE80; }
+  .svc-redis  .svc-name { color: #F87171; }
+
+  .svc-role {
+    font-size: 10px; color: #3A3D60; line-height: 1.4;
+  }
+  .svc-key {
+    font-size: 9px; font-family: monospace;
+    padding: 3px 7px; border-radius: 5px; margin-top: 2px;
+    display: inline-block; width: fit-content;
+  }
+  .svc-exa    .svc-key { background: rgba(99,102,241,0.1); color: #6366F1; }
+  .svc-groq   .svc-key { background: rgba(52,211,153,0.1); color: #34D399; }
+  .svc-apollo .svc-key { background: rgba(251,146,60,0.1); color: #FB923C; }
+  .svc-slack  .svc-key { background: rgba(74,222,128,0.1); color: #4ADE80; }
+  .svc-redis  .svc-key { background: rgba(248,113,113,0.1); color: #F87171; }
+
+  /* Output layer */
+  .layer-output {
+    background: linear-gradient(135deg, #0A1018 0%, #060C10 100%);
+    border: 1px solid rgba(52,211,153,0.2);
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: 100%;
+  }
+  .layer-output .layer-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #34D399; margin-bottom: 12px;
+  }
+  .output-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .output-card {
+    background: rgba(10,16,24,0.8);
+    border: 1px solid rgba(52,211,153,0.12);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .output-card .out-icon { font-size: 18px; margin-bottom: 5px; }
+  .output-card .out-name { font-size: 11px; font-weight: 700; color: #6EE7B7; margin-bottom: 3px; }
+  .output-card .out-desc { font-size: 10px; color: #2E4A40; line-height: 1.5; }
+
+  /* Flow arrows between sections */
+  .section-gap {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 100%;
+  }
+  .section-gap::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 1.5px;
+    background: linear-gradient(to bottom, rgba(99,102,241,0.3), rgba(99,102,241,0.05));
+  }
+  .gap-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #2E3158;
+    background: #080A17;
+    padding: 2px 10px;
+    border: 1px solid rgba(99,102,241,0.12);
+    border-radius: 20px;
+    z-index: 1;
+  }
+
+  /* Flow diagram (single vs bulk) */
+  .flow-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 0;
+  }
+  .flow-card {
+    background: #0C0E1E;
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .flow-card .flow-title {
+    font-size: 10px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.1em; margin-bottom: 12px;
+    display: flex; align-items: center; gap-7px;
+  }
+  .flow-card.single .flow-title { color: #818CF8; }
+  .flow-card.bulk   .flow-title { color: #A78BFA; }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .flow-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: 24px;
+    bottom: -8px;
+    width: 1px;
+    background: rgba(99,102,241,0.2);
+  }
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: #818CF8;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; padding-bottom: 14px; }
+  .step-body strong { font-size: 11px; color: #C2C5F0; display: block; margin-bottom: 2px; }
+  .step-body span { font-size: 10px; color: #3A3D60; line-height: 1.5; display: block; }
+  .step-tag {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 3px;
+  }
+  .tag-exa    { background: rgba(99,102,241,0.1); color: #818CF8; }
+  .tag-groq   { background: rgba(52,211,153,0.1); color: #34D399; }
+  .tag-apollo { background: rgba(251,146,60,0.1); color: #FB923C; }
+  .tag-redis  { background: rgba(248,113,113,0.1); color: #F87171; }
+  .tag-slack  { background: rgba(74,222,128,0.1); color: #4ADE80; }
+  .tag-local  { background: rgba(99,102,241,0.08); color: #6668A8; }
+
+  /* Data model */
+  .data-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+  .data-card {
+    background: #0C0E1E;
+    border: 1px solid rgba(99,102,241,0.12);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .data-card .data-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #4A4D78; margin-bottom: 10px;
+    padding-bottom: 8px; border-bottom: 1px solid rgba(99,102,241,0.1);
+  }
+  .field {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .field-name { font-family: monospace; font-size: 11px; color: #818CF8; }
+  .field-type { font-size: 9px; color: #3A3D60; }
+
+  .section-title {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #2E3158;
+    text-align: center;
+    margin-top: 40px;
+    margin-bottom: 14px;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(99,102,241,0.08);
+    width: 100%; max-width: 1100px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap-6px;
+    font-size: 11px; color: #3A3D60;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L0,8 L8,4 z" fill="rgba(99,102,241,0.4)"/>
+    </marker>
+  </defs>
+</svg>
+
+<h1>SignalTrace — Architecture</h1>
+<p class="subtitle">Full system diagram · June 2026</p>
+
+<div class="diagram">
+
+  <!-- ── USER FLOWS ──────────────────────────── -->
+  <p class="section-title">App Flows</p>
+  <div class="flow-section">
+
+    <!-- Single prospect -->
+    <div class="flow-card single">
+      <div class="flow-title">Single Prospect Flow</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Entry — Company lookup or manual</strong>
+            <span>Type company → Exa finds decision-makers. Or enter name, email, LinkedIn manually.</span>
+            <span class="step-tag tag-exa">Exa</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>People Picker</strong>
+            <span>Select who to target from Exa-returned LinkedIn profiles grid.</span>
+            <span class="step-tag tag-local">UI only</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Signal Picker</strong>
+            <span>Exa fetches company news + person signals. Pick the best hook or skip.</span>
+            <span class="step-tag tag-exa">Exa</span>
+            <span class="step-tag tag-redis" style="margin-left:4px">Redis dup check</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>Generate</strong>
+            <span>Groq writes email body, 3 subject lines, landing page copy, and quality scores in one call.</span>
+            <span class="step-tag tag-groq">Groq LLaMA 3.3 70B</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <strong>Review &amp; Edit</strong>
+            <span>Edit email + LP content inline. Pick subject line. Scores flagged if &lt; 6/10.</span>
+            <span class="step-tag tag-local">UI only</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">6</div>
+          <div class="step-body">
+            <strong>Push</strong>
+            <span>Apollo gets the contact + sequence enrol. Slack fires a notification. History saved to Redis.</span>
+            <span class="step-tag tag-apollo">Apollo</span>
+            <span class="step-tag tag-slack" style="margin-left:4px">Slack</span>
+            <span class="step-tag tag-redis" style="margin-left:4px">Redis</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk -->
+    <div class="flow-card bulk">
+      <div class="flow-title">Bulk Generate Flow</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Find Companies</strong>
+            <span>ICP description → AI finds matches via Exa. Or filter builder (industry, size, location). Or paste CSV.</span>
+            <span class="step-tag tag-exa">Exa</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Configure Options</strong>
+            <span>Target role (CEO / VP Sales / CMO etc.), auto-push toggle, min quality score threshold.</span>
+            <span class="step-tag tag-local">Settings</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Sequential Processing</strong>
+            <span>Per company: find person → fetch signal → generate email + LP → score check → push if above threshold. Live progress table.</span>
+            <span class="step-tag tag-exa">Exa</span>
+            <span class="step-tag tag-groq" style="margin-left:4px">Groq</span>
+            <span class="step-tag tag-apollo" style="margin-left:4px">Apollo</span>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>Results Table</strong>
+            <span>Each row: person found, subject line, P·C·CTA scores, Apollo status. Expand to read full email. LP link per row.</span>
+            <span class="step-tag tag-redis">Redis LP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── FRONTEND COMPONENTS ──────────────── -->
+  <p class="section-title">Frontend Components</p>
+  <div class="layer-user">
+    <div class="layer-title">React Components · app/page.tsx · Next.js App Router</div>
+    <div class="component-row">
+      <span class="component-chip">BackgroundCanvas</span>
+      <span class="component-chip">HeroBanner</span>
+      <span class="component-chip">Logo</span>
+      <span class="component-chip">ThemeToggle</span>
+      <span class="component-chip">SettingsBar</span>
+      <span class="component-chip">ProspectForm</span>
+      <span class="component-chip">PeoplePicker</span>
+      <span class="component-chip violet">CompanyDiscovery</span>
+      <span class="component-chip violet">SignalPicker</span>
+      <span class="component-chip green">EcgLoader</span>
+      <span class="component-chip green">QualityScores</span>
+      <span class="component-chip green">SubjectLineVariants</span>
+      <span class="component-chip green">ReviewPanel</span>
+      <span class="component-chip amber">PushButton</span>
+      <span class="component-chip amber">HistoryTable</span>
+    </div>
+  </div>
+
+  <!-- gap -->
+  <div class="section-gap"><span class="gap-label">POST requests · JSON body</span></div>
+
+  <!-- ── API ROUTES ──────────────────────── -->
+  <div class="layer-api">
+    <div class="layer-title">API Routes · app/api/ · Next.js Route Handlers</div>
+    <div class="route-grid">
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/people</span>
+        <span class="desc">Exa company → decision-makers list + email enrichment</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/signals</span>
+        <span class="desc">Exa signal search + Redis duplicate check</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/generate</span>
+        <span class="desc">Groq → email + subject lines + LP + scores</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST/GET</span>
+        <span class="path">/api/lp</span>
+        <span class="desc">Redis: save / read landing page content by slug</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST/GET</span>
+        <span class="path">/api/history</span>
+        <span class="desc">Redis: save pushed prospects, read history list</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/push/apollo</span>
+        <span class="desc">Create contact + enrol in sequence via Apollo v1</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/push/slack</span>
+        <span class="desc">Fire Slack incoming webhook with scores + LP link</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/discover</span>
+        <span class="desc">ICP description → Exa company discovery for bulk</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">POST</span>
+        <span class="path">/api/bulk</span>
+        <span class="desc">Orchestrates full per-company run: people → signals → generate → push</span>
+      </div>
+      <div class="route-chip">
+        <span class="method">GET</span>
+        <span class="path">/lp/[slug]</span>
+        <span class="desc">Public prospect landing page — reads content from Redis</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- gap -->
+  <div class="section-gap"><span class="gap-label">External API calls</span></div>
+
+  <!-- ── EXTERNAL SERVICES ──────────────── -->
+  <div class="services-row">
+
+    <div class="service-card svc-exa">
+      <div class="svc-icon">🔍</div>
+      <div class="svc-name">Exa</div>
+      <div class="svc-role">Real-time web search API. Used for: company signal search, person signals, people lookup, ICP discovery, email enrichment.</div>
+      <span class="svc-key">EXA_API_KEY</span>
+    </div>
+
+    <div class="service-card svc-groq">
+      <div class="svc-icon">⚡</div>
+      <div class="svc-name">Groq</div>
+      <div class="svc-role">LLaMA 3.3 70B inference. Generates: email body, 3 subject lines, landing page copy, quality scores (P·C·CTA), angle reasoning.</div>
+      <span class="svc-key">GROQ_API_KEY</span>
+    </div>
+
+    <div class="service-card svc-apollo">
+      <div class="svc-icon">🚀</div>
+      <div class="svc-name">Apollo.io</div>
+      <div class="svc-role">CRM v1 REST API. Creates contact record, matches person, optionally enrols in outbound sequence by ID.</div>
+      <span class="svc-key">APOLLO_API_KEY</span>
+    </div>
+
+    <div class="service-card svc-slack">
+      <div class="svc-icon">💬</div>
+      <div class="svc-name">Slack</div>
+      <div class="svc-role">Incoming webhook notification. Fires on push: prospect name, signal used, P·C·CTA scores, landing page link.</div>
+      <span class="svc-key">SLACK_WEBHOOK_URL</span>
+    </div>
+
+    <div class="service-card svc-redis">
+      <div class="svc-icon">🗄️</div>
+      <div class="svc-name">Upstash Redis</div>
+      <div class="svc-role">Serverless key-value store. Stores: prospect history, landing page content by slug, LP → prospect reverse index for visit tracking.</div>
+      <span class="svc-key">UPSTASH_REDIS_*</span>
+    </div>
+
+  </div>
+
+  <!-- gap -->
+  <div class="section-gap"><span class="gap-label">Outputs</span></div>
+
+  <!-- ── OUTPUTS ────────────────────────── -->
+  <div class="layer-output">
+    <div class="layer-title">Generated Outputs</div>
+    <div class="output-grid">
+      <div class="output-card">
+        <div class="out-icon">✉️</div>
+        <div class="out-name">Cold Email</div>
+        <div class="out-desc">150–200 word personalised body, referencing the chosen signal. LP URL embedded inline. Editable before push.</div>
+      </div>
+      <div class="output-card">
+        <div class="out-icon">📋</div>
+        <div class="out-name">Subject Lines</div>
+        <div class="out-desc">3 variants per generation. Curiosity / Direct / Signal-reference styles. Each with reasoning. User picks one.</div>
+      </div>
+      <div class="output-card">
+        <div class="out-icon">🌐</div>
+        <div class="out-name">Landing Page</div>
+        <div class="out-desc">Personalised page at /lp/[slug]. Headline, subheadline, body, CTA. Stored in Redis. Editable. Visit-tracked.</div>
+      </div>
+      <div class="output-card">
+        <div class="out-icon">📊</div>
+        <div class="out-name">Quality Scores</div>
+        <div class="out-desc">Personalization · Clarity · CTA — each 1–10. Animated bars. Gate on push if any score below 6.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DATA MODELS ────────────────────── -->
+  <p class="section-title">Key Data Types</p>
+  <div class="data-section">
+
+    <div class="data-card">
+      <div class="data-title">ProspectInput</div>
+      <div class="field"><span class="field-name">name</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">company</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">email</span><span class="field-type">string?</span></div>
+      <div class="field"><span class="field-name">linkedinUrl</span><span class="field-type">string?</span></div>
+    </div>
+
+    <div class="data-card">
+      <div class="data-title">Signal</div>
+      <div class="field"><span class="field-name">id</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">title</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">summary</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">url</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">type</span><span class="field-type">"company" | "person"</span></div>
+      <div class="field"><span class="field-name">publishedDate</span><span class="field-type">string?</span></div>
+    </div>
+
+    <div class="data-card">
+      <div class="data-title">GenerationResult</div>
+      <div class="field"><span class="field-name">emailBody</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">subjectLines</span><span class="field-type">SubjectLine[]</span></div>
+      <div class="field"><span class="field-name">scores</span><span class="field-type">QualityScores</span></div>
+      <div class="field"><span class="field-name">angleReasoning</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">landingPageContent</span><span class="field-type">LandingPageContent</span></div>
+    </div>
+
+    <div class="data-card">
+      <div class="data-title">ProspectRecord (Redis)</div>
+      <div class="field"><span class="field-name">id</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">name / company</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">emailBody</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">lpSlug / lpUrl</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">scores</span><span class="field-type">QualityScores</span></div>
+      <div class="field"><span class="field-name">lpVisits</span><span class="field-type">string[]</span></div>
+      <div class="field"><span class="field-name">contactedAt</span><span class="field-type">ISO string</span></div>
+    </div>
+
+    <div class="data-card">
+      <div class="data-title">LandingPageContent</div>
+      <div class="field"><span class="field-name">headline</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">subheadline</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">body</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">ctaText</span><span class="field-type">string</span></div>
+      <div class="field"><span class="field-name">ctaUrl</span><span class="field-type">string</span></div>
+    </div>
+
+    <div class="data-card">
+      <div class="data-title">QualityScores</div>
+      <div class="field"><span class="field-name">personalization</span><span class="field-type">1–10</span></div>
+      <div class="field"><span class="field-name">clarity</span><span class="field-type">1–10</span></div>
+      <div class="field"><span class="field-name">cta</span><span class="field-type">1–10</span></div>
+      <div style="margin-top:10px; font-size:10px; color:#2E3158; line-height:1.6;">
+        Push gated if any score &lt; 6.<br/>
+        Groq scores honestly — no-signal emails cap at ~6 personalization.
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#6366F1"></div> Exa (search)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#34D399"></div> Groq (generation)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FB923C"></div> Apollo (CRM)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#4ADE80"></div> Slack (notifications)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#F87171"></div> Upstash Redis (storage)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#818CF8"></div> UI / local state</div>
+</div>
+
+</body>
+</html>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { LandingPageContent } from "@/types";
 
 interface Props {
@@ -24,6 +25,8 @@ export default function ReviewPanel({
   onRegenerate,
   regenerating = false,
 }: Props) {
+  const [mobilePanel, setMobilePanel] = useState<"email" | "lp">("email");
+
   function patchLp(patch: Partial<LandingPageContent>) {
     onLpContentChange({ ...lpContent, ...patch });
   }
@@ -65,11 +68,28 @@ export default function ReviewPanel({
         </div>
       )}
 
+      {/* ── Mobile panel switcher ───────────────────────────────── */}
+      <div className="flex sm:hidden gap-1 p-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] mb-1">
+        {(["email", "lp"] as const).map((p) => (
+          <button
+            key={p}
+            onClick={() => setMobilePanel(p)}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              mobilePanel === p
+                ? "bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
+                : "text-ink-3 hover:text-ink-2"
+            }`}
+          >
+            {p === "email" ? "Email body" : "Landing page"}
+          </button>
+        ))}
+      </div>
+
       {/* ── Two-column editor ────────────────────────────────────── */}
-      <div className={`grid grid-cols-2 gap-6 transition-opacity ${regenerating ? "opacity-40 pointer-events-none" : ""}`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 transition-opacity ${regenerating ? "opacity-40 pointer-events-none" : ""}`}>
 
         {/* Email editor */}
-        <div className="space-y-2">
+        <div className={`space-y-2 ${mobilePanel === "lp" ? "hidden sm:block" : "block"}`}>
           <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-[0.08em]">
             Email body
           </h3>
@@ -86,7 +106,7 @@ export default function ReviewPanel({
         </div>
 
         {/* LP editor */}
-        <div className="space-y-4">
+        <div className={`space-y-4 ${mobilePanel === "email" ? "hidden sm:block" : "block"}`}>
           <div className="flex items-center justify-between">
             <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-[0.08em]">
               Landing page
@@ -95,7 +115,7 @@ export default function ReviewPanel({
               href={lpUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors"
+              className="text-xs text-brand-500 hover:text-brand-400 font-medium transition-colors"
             >
               Preview live page ↗
             </a>
