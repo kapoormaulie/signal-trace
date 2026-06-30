@@ -46,7 +46,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
   function pillCls(active: boolean) {
     return `px-3 py-1.5 text-xs rounded-xl border cursor-pointer transition-all select-none ${
       active
-        ? "border-brand-400 bg-brand-50 text-brand-700 shadow-signal-sm"
+        ? "border-brand-400 bg-[rgba(99,102,241,0.1)] text-brand-500 shadow-signal-sm"
         : "border-[var(--input-border)] text-ink-3 hover:border-brand-300 hover:text-ink-2 bg-[var(--input-bg)]"
     }`;
   }
@@ -127,9 +127,8 @@ export default function CompanyDiscovery({ onAdd }: Props) {
     <div
       className="rounded-2xl p-5 space-y-4"
       style={{
-        background: "linear-gradient(135deg, rgba(238,242,255,0.6) 0%, rgba(245,243,255,0.5) 100%)",
-        border: "1px solid rgba(165,180,252,0.3)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
+        background: "var(--surface)",
+        border: "1px solid var(--mist)",
       }}
     >
       {/* Header */}
@@ -273,8 +272,8 @@ export default function CompanyDiscovery({ onAdd }: Props) {
                 onClick={() => toggleSelect(c.name)}
                 className={`text-left rounded-xl border p-3 transition-all card-lift ${
                   selected.has(c.name)
-                    ? "border-brand-300 bg-brand-50/80"
-                    : "border-[var(--input-border)] bg-[var(--input-bg)] hover:border-brand-200"
+                    ? "border-brand-400 bg-[rgba(99,102,241,0.1)]"
+                    : "border-[var(--input-border)] bg-[var(--input-bg)] hover:border-brand-300"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-1">
