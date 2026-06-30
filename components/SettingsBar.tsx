@@ -7,6 +7,7 @@ interface Props {
   settings: UserSettings;
   onSave: (patch: Partial<UserSettings>) => void;
   isConfigured: boolean;
+  forceOpen?: boolean;
 }
 
 const inputCls =
@@ -25,8 +26,8 @@ function StatusDot({ connected }: { connected: boolean }) {
   );
 }
 
-export default function SettingsBar({ settings, onSave, isConfigured }: Props) {
-  const [open, setOpen] = useState(!isConfigured);
+export default function SettingsBar({ settings, onSave, isConfigured, forceOpen }: Props) {
+  const [open, setOpen] = useState(forceOpen ? true : !isConfigured);
   const [tab, setTab] = useState<"profile" | "integrations">("profile");
   const [draft, setDraft] = useState(settings);
 
@@ -44,7 +45,7 @@ export default function SettingsBar({ settings, onSave, isConfigured }: Props) {
   const slackConnected  = !!(draft.slackWebhookUrl?.trim() || settings.slackWebhookUrl?.trim());
 
   // ── Collapsed pill ─────────────────────────────────────────────────────────
-  if (!open) {
+  if (!open && !forceOpen) {
     return (
       <div className="flex items-center justify-between text-xs text-ink-3 mb-5 px-1">
         <div className="flex items-center gap-3 flex-wrap">
@@ -92,7 +93,7 @@ export default function SettingsBar({ settings, onSave, isConfigured }: Props) {
             Saved locally in your browser — never sent to any server.
           </p>
         </div>
-        {isConfigured && (
+        {isConfigured && !forceOpen && (
           <button
             onClick={() => setOpen(false)}
             className="text-ink-3 hover:text-ink text-xs transition-colors"

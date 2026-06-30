@@ -30,7 +30,7 @@ import type {
 // ─── Types ───────────────────────────────────────────────────────────────────
 type PushStatus = "idle" | "loading" | "success" | "error";
 type DupInfo = { id: string; name: string; company: string; contactedAt: string };
-type PageTab = "single" | "bulk";
+type PageTab = "single" | "bulk" | "settings";
 type TargetRole = "decision-maker" | "sales" | "marketing" | "product" | "any";
 type BulkRowStatus = "queued" | "processing" | "done" | "error";
 
@@ -113,20 +113,39 @@ async function apiFetch<T>(url: string, body: unknown): Promise<T> {
 }
 
 // ─── TabBar ──────────────────────────────────────────────────────────────────
-function TabBar({ tab, onChange }: { tab: PageTab; onChange: (t: PageTab) => void }) {
+function TabBar({
+  tab,
+  onChange,
+  showSettingsBadge,
+}: {
+  tab: PageTab;
+  onChange: (t: PageTab) => void;
+  showSettingsBadge?: boolean;
+}) {
+  const TABS: { id: PageTab; label: string }[] = [
+    { id: "single",   label: "Single prospect" },
+    { id: "bulk",     label: "Bulk generate"   },
+    { id: "settings", label: "Settings"        },
+  ];
+
   return (
     <div className="dark-tab-tray flex gap-1 mb-6 bg-white/50 backdrop-blur-sm rounded-xl p-1 w-fit border border-[rgba(223,227,248,0.7)] shadow-sm">
-      {(["single", "bulk"] as PageTab[]).map((t) => (
+      {TABS.map(({ id, label }) => (
         <button
-          key={t}
-          onClick={() => onChange(t)}
-          className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-            tab === t
+          key={id}
+          onClick={() => onChange(id)}
+          className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+            tab === id
               ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
               : "text-ink-3 hover:text-ink-2"
           }`}
         >
-          {t === "single" ? "Single prospect" : "Bulk generate"}
+          {label}
+          {id === "settings" && showSettingsBadge && (
+            <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
+              Recommended
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -657,16 +676,25 @@ export default function HomePage() {
         {/* ── Main content ──────────────────────────────────── */}
         <main className="max-w-4xl mx-auto px-6 py-8">
 
-          {/* Settings */}
-          {settingsLoaded && (
-            <SettingsBar settings={settings} onSave={saveSettings} isConfigured={isConfigured} />
-          )}
-
           {/* Tabs */}
-          <TabBar tab={tab} onChange={(t) => { setTab(t); setState(INITIAL); }} />
+          <TabBar
+            tab={tab}
+            onChange={(t) => { setTab(t); setState(INITIAL); }}
+            showSettingsBadge={!isConfigured}
+          />
 
           {/* ── BULK ─────────────────────────────────────── */}
           {tab === "bulk" && <BulkSection settings={settings} />}
+
+          {/* ── SETTINGS ─────────────────────────────────── */}
+          {tab === "settings" && settingsLoaded && (
+            <SettingsBar
+              settings={settings}
+              onSave={(patch) => { saveSettings(patch); setTab("single"); }}
+              isConfigured={isConfigured}
+              forceOpen
+            />
+          )}
 
           {/* ── SINGLE ───────────────────────────────────── */}
           {tab === "single" && (
