@@ -9,6 +9,7 @@ interface Props {
   scores: QualityScores;
   ctaUrl?: string;
   apolloApiKey?: string;
+  slackWebhookUrl?: string;
   onPush: () => void;
   onOpenIntegrations?: () => void;
   instantlyStatus: PushStatus;
@@ -28,6 +29,7 @@ export default function PushButton({
   scores,
   ctaUrl,
   apolloApiKey,
+  slackWebhookUrl,
   onPush,
   onOpenIntegrations,
   instantlyStatus,
@@ -44,6 +46,7 @@ export default function PushButton({
   const needsAck = lowDims.length > 0;
   const noCtaUrl = !ctaUrl?.trim();
   const noApolloKey = !apolloApiKey?.trim();
+  const noSlackUrl  = !slackWebhookUrl?.trim();
   const canPush = !noApolloKey && (!needsAck || acknowledged) && (!noCtaUrl || ctaAcknowledged);
   const isPushing = instantlyStatus === "loading" || slackStatus === "loading";
   const hasPushed = instantlyStatus !== "idle" || slackStatus !== "idle";
@@ -72,6 +75,34 @@ export default function PushButton({
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Slack webhook missing — soft notice */}
+      {noSlackUrl && !hasPushed && (
+        <div className="rounded-xl border border-amber-400/40 bg-[rgba(251,191,36,0.05)] px-4 py-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <svg className="shrink-0 mt-0.5 text-amber-500" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3"/>
+                <path d="M7 5.5v3M7 10h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <div>
+                <p className="text-xs font-semibold text-amber-500">Slack not connected</p>
+                <p className="text-[11px] text-amber-500/70 leading-relaxed mt-0.5">
+                  Your team won&apos;t get notified when this lead is pushed.
+                </p>
+              </div>
+            </div>
+            {onOpenIntegrations && (
+              <button
+                onClick={onOpenIntegrations}
+                className="shrink-0 text-[11px] font-semibold text-amber-500 border border-amber-400/50 hover:border-amber-400 hover:bg-[rgba(251,191,36,0.08)] rounded-lg px-2.5 py-1 transition-all whitespace-nowrap"
+              >
+                Add now →
+              </button>
+            )}
           </div>
         </div>
       )}

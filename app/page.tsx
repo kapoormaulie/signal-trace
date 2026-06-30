@@ -1026,8 +1026,9 @@ export default function HomePage() {
                       scores={generation.scores}
                       ctaUrl={editedLpContent?.ctaUrl ?? generation.landingPageContent.ctaUrl}
                       apolloApiKey={settings.apolloApiKey}
+                      slackWebhookUrl={settings.slackWebhookUrl}
                       onPush={handlePush}
-                      onOpenIntegrations={() => { setTab("integrations"); setState(INITIAL); }}
+                      onOpenIntegrations={() => setTab("integrations")}
                       instantlyStatus={instantlyStatus}
                       slackStatus={slackStatus}
                       onRetryInstantly={handleRetryApollo}
