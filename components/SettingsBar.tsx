@@ -31,6 +31,7 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
   const [open, setOpen] = useState(forceOpen ? true : !isConfigured);
   const [tab, setTab] = useState<"profile" | "integrations">(showSection ?? "profile");
   const [draft, setDraft] = useState(settings);
+  const [showWhy, setShowWhy] = useState(false);
 
   if (!open && draft.senderCompany !== settings.senderCompany) {
     setDraft(settings);
@@ -133,24 +134,46 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
       {/* ── SENDER PROFILE TAB ──────────────────────────────────────── */}
       {tab === "profile" && (
         <div className="space-y-5">
-          {/* Why it matters banner */}
-          <div className="rounded-xl border border-brand-300/30 bg-[rgba(99,102,241,0.05)] px-4 py-3.5">
-            <p className="text-xs font-semibold text-brand-400 mb-2">Why this makes your emails work</p>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { icon: "✍️", title: "Signed by you", body: "Every email is signed with your name and mentions your company — it reads as hand-written, not automated." },
-                { icon: "🎯", title: "Contextual value prop", body: "The AI frames your product's value specifically for each prospect's pain — using your company as the anchor." },
-                { icon: "🔗", title: "LP branded to you", body: "The landing page headline positions your company as the solution — not a generic pitch." },
-              ].map((item) => (
-                <div key={item.title} className="flex gap-2.5">
-                  <span className="text-base shrink-0 mt-0.5">{item.icon}</span>
-                  <div>
-                    <p className="text-xs font-semibold text-ink-2 mb-0.5">{item.title}</p>
-                    <p className="text-[11px] text-ink-4 leading-relaxed">{item.body}</p>
-                  </div>
+          {/* Why it matters — collapsed by default */}
+          <div className="rounded-xl border border-[var(--input-border)] overflow-hidden">
+            <button
+              onClick={() => setShowWhy((v) => !v)}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-[var(--input-bg)] transition-colors"
+            >
+              <span className="flex items-center gap-2 text-xs font-semibold text-brand-500">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                  <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
+                  <path d="M6.5 6v3M6.5 4h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+                Why this makes your emails work
+              </span>
+              <svg
+                width="12" height="12" viewBox="0 0 12 12" fill="none"
+                className={`text-ink-4 transition-transform duration-200 ${showWhy ? "rotate-180" : ""}`}
+              >
+                <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {showWhy && (
+              <div className="px-3.5 pb-3.5 pt-1 border-t border-[var(--input-border)] bg-[rgba(99,102,241,0.04)]">
+                <div className="grid grid-cols-3 gap-3 pt-2.5">
+                  {[
+                    { icon: "✍️", title: "Signed by you", body: "Every email is signed with your name and mentions your company — it reads as hand-written, not automated." },
+                    { icon: "🎯", title: "Contextual value prop", body: "The AI frames your product's value specifically for each prospect's pain — using your company as the anchor." },
+                    { icon: "🔗", title: "LP branded to you", body: "The landing page headline positions your company as the solution — not a generic pitch." },
+                  ].map((item) => (
+                    <div key={item.title} className="flex gap-2">
+                      <span className="text-sm shrink-0 mt-0.5">{item.icon}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-ink-2 mb-0.5">{item.title}</p>
+                        <p className="text-[11px] text-ink-4 leading-relaxed">{item.body}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Fields */}
