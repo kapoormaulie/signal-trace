@@ -705,39 +705,46 @@ export default function HomePage() {
   return (
     <div className="min-h-screen" style={{ background: "var(--background)", position: "relative" }}>
 
-      {/* ── Full-screen overlay for Sender profile / Integrations ── */}
+      {/* ── Right-side drawer for Sender profile / Integrations ── */}
       {(tab === "settings" || tab === "integrations") && settingsLoaded && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col overlay-in"
-          style={{ background: "var(--background)" }}
-        >
-          {/* Overlay header */}
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop — click to close */}
           <div
-            className="sticky top-0 z-10 flex items-center h-14 px-6 border-b shrink-0"
+            className="flex-1 backdrop-fade-in"
+            style={{ background: "rgba(0,0,0,0.18)" }}
+            onClick={() => { setTab("single"); setState(INITIAL); }}
+          />
+
+          {/* Drawer panel */}
+          <div
+            className="w-[440px] max-w-[92vw] h-full flex flex-col panel-slide-in"
             style={{
-              background: "var(--header-bg)",
-              backdropFilter: "blur(20px)",
-              WebkitBackdropFilter: "blur(20px)",
-              borderColor: "var(--header-border)",
+              background: "var(--surface)",
+              borderLeft: "1px solid var(--input-border)",
+              boxShadow: "-12px 0 48px rgba(0,0,0,0.18)",
             }}
           >
-            <button
-              onClick={() => { setTab("single"); setState(INITIAL); }}
-              className="flex items-center gap-2 text-sm font-medium text-ink-3 hover:text-ink transition-colors"
+            {/* Drawer header */}
+            <div
+              className="flex items-center justify-between px-5 h-14 border-b shrink-0"
+              style={{ borderColor: "var(--input-border)" }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              Back
-            </button>
-            <span className="absolute left-1/2 -translate-x-1/2 text-sm font-semibold text-ink">
-              {tab === "settings" ? "Sender profile" : "Integrations"}
-            </span>
-          </div>
+              <h2 className="text-sm font-semibold text-ink">
+                {tab === "settings" ? "Sender profile" : "Integrations"}
+              </h2>
+              <button
+                onClick={() => { setTab("single"); setState(INITIAL); }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-3 hover:text-ink hover:bg-[var(--input-bg)] transition-all"
+                aria-label="Close"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 2L12 12M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
 
-          {/* Overlay scrollable content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto px-6 py-10">
+            {/* Drawer scrollable content */}
+            <div className="flex-1 overflow-y-auto px-5 py-6">
               <SettingsBar
                 settings={settings}
                 onSave={(patch) => { saveSettings(patch); setTab("single"); }}

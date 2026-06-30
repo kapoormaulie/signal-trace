@@ -469,12 +469,20 @@
    FULL-PAGE OVERLAY
    ═══════════════════════════════════════════════ */
 
-@keyframes overlay-in {
-  from { opacity: 0; transform: translateY(18px); }
-  to   { opacity: 1; transform: translateY(0); }
+@keyframes panel-slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
-.overlay-in {
-  animation: overlay-in 0.28s cubic-bezier(0.34, 1.1, 0.64, 1) forwards;
+.panel-slide-in {
+  animation: panel-slide-in 0.26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.backdrop-fade-in {
+  animation: backdrop-fade-in 0.2s ease forwards;
 }
 
 /* ═══════════════════════════════════════════════
