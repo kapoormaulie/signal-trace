@@ -129,31 +129,48 @@ function SetupTabBar({
     { id: "integrations", label: "Integrations"          },
   ];
 
+  const onSetupTab = tab === "settings" || tab === "integrations";
+
   return (
-    <div className="dark-tab-tray flex gap-1 mb-6 bg-white/50 backdrop-blur-sm rounded-xl p-1 w-fit border border-[rgba(223,227,248,0.7)] shadow-sm">
-      {TABS.map(({ id, label }) => (
+    <div className="flex items-center gap-3 mb-6">
+      {/* Back button — only visible when a setup tab is active */}
+      {onSetupTab && (
         <button
-          key={id}
-          onClick={() => onChange(id === tab ? "single" : id)}
-          className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
-            tab === id
-              ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
-              : "text-ink-3 hover:text-ink-2"
-          }`}
+          onClick={() => onChange("single")}
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors shrink-0"
         >
-          {label}
-          {id === "settings" && showSettingsBadge && tab !== "settings" && (
-            <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
-              Recommended
-            </span>
-          )}
-          {id === "integrations" && showIntegrationsBadge && tab !== "integrations" && (
-            <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
-              Required
-            </span>
-          )}
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Back
         </button>
-      ))}
+      )}
+
+      <div className="dark-tab-tray flex gap-1 bg-white/50 backdrop-blur-sm rounded-xl p-1 w-fit border border-[rgba(223,227,248,0.7)] shadow-sm">
+        {TABS.map(({ id, label }) => (
+          <button
+            key={id}
+            onClick={() => onChange(id === tab ? "single" : id)}
+            className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+              tab === id
+                ? "dark-tab-active bg-white text-ink shadow-sm border border-[rgba(223,227,248,0.8)]"
+                : "text-ink-3 hover:text-ink-2"
+            }`}
+          >
+            {label}
+            {id === "settings" && showSettingsBadge && tab !== "settings" && (
+              <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
+                Recommended
+              </span>
+            )}
+            {id === "integrations" && showIntegrationsBadge && tab !== "integrations" && (
+              <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
+                Required
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -161,20 +178,34 @@ function SetupTabBar({
 // ─── ModeSwitcher — single vs bulk, lives inside the content area ─────────────
 function ModeSwitcher({ tab, onChange }: { tab: PageTab; onChange: (t: "single" | "bulk") => void }) {
   return (
-    <div className="flex items-center gap-1 p-1 rounded-xl w-fit border border-[var(--input-border)] bg-[var(--input-bg)] mb-5">
-      {(["single", "bulk"] as const).map((m) => (
+    <div className="flex items-center gap-3 mb-5">
+      {/* Back arrow — only shown when in bulk mode */}
+      {tab === "bulk" && (
         <button
-          key={m}
-          onClick={() => onChange(m)}
-          className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-            tab === m
-              ? "dark-tab-active bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
-              : "text-ink-3 hover:text-ink-2"
-          }`}
+          onClick={() => onChange("single")}
+          className="flex items-center gap-1.5 text-xs font-medium text-ink-3 hover:text-ink transition-colors shrink-0"
         >
-          {m === "single" ? "Single prospect" : "Bulk generate"}
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M9 2L4 7L9 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Back
         </button>
-      ))}
+      )}
+      <div className="flex items-center gap-1 p-1 rounded-xl w-fit border border-[var(--input-border)] bg-[var(--input-bg)]">
+        {(["single", "bulk"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => onChange(m)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+              tab === m
+                ? "dark-tab-active bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
+                : "text-ink-3 hover:text-ink-2"
+            }`}
+          >
+            {m === "single" ? "Single prospect" : "Bulk generate"}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
