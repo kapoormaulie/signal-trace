@@ -30,7 +30,7 @@ import type {
 // ─── Types ───────────────────────────────────────────────────────────────────
 type PushStatus = "idle" | "loading" | "success" | "error";
 type DupInfo = { id: string; name: string; company: string; contactedAt: string };
-type PageTab = "single" | "bulk" | "settings";
+type PageTab = "single" | "bulk" | "settings" | "integrations";
 type TargetRole = "decision-maker" | "sales" | "marketing" | "product" | "any";
 type BulkRowStatus = "queued" | "processing" | "done" | "error";
 
@@ -117,15 +117,18 @@ function TabBar({
   tab,
   onChange,
   showSettingsBadge,
+  showIntegrationsBadge,
 }: {
   tab: PageTab;
   onChange: (t: PageTab) => void;
   showSettingsBadge?: boolean;
+  showIntegrationsBadge?: boolean;
 }) {
   const TABS: { id: PageTab; label: string }[] = [
-    { id: "single",   label: "Single prospect" },
-    { id: "bulk",     label: "Bulk generate"   },
-    { id: "settings", label: "Set up sender profile" },
+    { id: "single",       label: "Single prospect"       },
+    { id: "bulk",         label: "Bulk generate"         },
+    { id: "settings",     label: "Set up sender profile" },
+    { id: "integrations", label: "Integrations"          },
   ];
 
   return (
@@ -144,6 +147,11 @@ function TabBar({
           {id === "settings" && showSettingsBadge && (
             <span className="text-[9px] font-bold text-white bg-amber-400 px-1.5 py-0.5 rounded-full leading-none">
               Recommended
+            </span>
+          )}
+          {id === "integrations" && showIntegrationsBadge && (
+            <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">
+              Required
             </span>
           )}
         </button>
@@ -681,6 +689,7 @@ export default function HomePage() {
             tab={tab}
             onChange={(t) => { setTab(t); setState(INITIAL); }}
             showSettingsBadge={!isConfigured}
+            showIntegrationsBadge={!settings.apolloApiKey}
           />
 
           {/* ── BULK ─────────────────────────────────────── */}
@@ -693,6 +702,18 @@ export default function HomePage() {
               onSave={(patch) => { saveSettings(patch); setTab("single"); }}
               isConfigured={isConfigured}
               forceOpen
+              showSection="profile"
+            />
+          )}
+
+          {/* ── INTEGRATIONS ──────────────────────────────── */}
+          {tab === "integrations" && settingsLoaded && (
+            <SettingsBar
+              settings={settings}
+              onSave={(patch) => { saveSettings(patch); setTab("single"); }}
+              isConfigured={isConfigured}
+              forceOpen
+              showSection="integrations"
             />
           )}
 

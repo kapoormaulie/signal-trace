@@ -8,6 +8,7 @@ interface Props {
   onSave: (patch: Partial<UserSettings>) => void;
   isConfigured: boolean;
   forceOpen?: boolean;
+  showSection?: "profile" | "integrations";
 }
 
 const inputCls =
@@ -26,9 +27,9 @@ function StatusDot({ connected }: { connected: boolean }) {
   );
 }
 
-export default function SettingsBar({ settings, onSave, isConfigured, forceOpen }: Props) {
+export default function SettingsBar({ settings, onSave, isConfigured, forceOpen, showSection }: Props) {
   const [open, setOpen] = useState(forceOpen ? true : !isConfigured);
-  const [tab, setTab] = useState<"profile" | "integrations">("profile");
+  const [tab, setTab] = useState<"profile" | "integrations">(showSection ?? "profile");
   const [draft, setDraft] = useState(settings);
 
   if (!open && draft.senderCompany !== settings.senderCompany) {
@@ -36,7 +37,7 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen 
   }
 
   function handleSave() {
-    if (!draft.senderCompany.trim()) return;
+    if (!showSection && !draft.senderCompany.trim()) return;
     onSave(draft);
     setOpen(false);
   }
@@ -103,29 +104,31 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen 
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-5 bg-[var(--input-bg)] rounded-xl p-1 w-fit border border-[var(--input-border)]">
-        {(["profile", "integrations"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              tab === t
-                ? "bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
-                : "text-ink-3 hover:text-ink-2"
-            }`}
-          >
-            {t === "profile" ? "Sender profile" : (
-              <span className="flex items-center gap-2">
-                Integrations
-                {(!apolloConnected || !slackConnected) && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                )}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+      {/* Internal sub-tabs — only shown when NOT navigated via a dedicated top-level tab */}
+      {!showSection && (
+        <div className="flex gap-1 mb-5 bg-[var(--input-bg)] rounded-xl p-1 w-fit border border-[var(--input-border)]">
+          {(["profile", "integrations"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                tab === t
+                  ? "bg-[var(--surface)] text-ink shadow-sm border border-[var(--input-border)]"
+                  : "text-ink-3 hover:text-ink-2"
+              }`}
+            >
+              {t === "profile" ? "Sender profile" : (
+                <span className="flex items-center gap-2">
+                  Integrations
+                  {(!apolloConnected || !slackConnected) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  )}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── SENDER PROFILE TAB ──────────────────────────────────────── */}
       {tab === "profile" && (
@@ -193,12 +196,25 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen 
         <div className="space-y-4">
 
           {/* Apollo */}
-          <div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-4">
+          <div
+            className="rounded-xl p-4"
+            style={{
+              border: apolloConnected
+                ? "1px solid var(--input-border)"
+                : "1px solid rgba(239,68,68,0.35)",
+              background: apolloConnected ? "var(--input-bg)" : "rgba(239,68,68,0.03)",
+            }}
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-lg bg-[rgba(251,146,60,0.12)] border border-[rgba(251,146,60,0.2)] flex items-center justify-center text-sm">🚀</div>
                 <div>
-                  <p className="text-sm font-semibold text-ink">Apollo.io</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-ink">Apollo.io</p>
+                    <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none tracking-wide">
+                      REQUIRED
+                    </span>
+                  </div>
                   <p className="text-[11px] text-ink-4">CRM — adds contacts + enrols in sequences</p>
                 </div>
               </div>
@@ -303,7 +319,7 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen 
       {/* Save button */}
       <button
         onClick={handleSave}
-        disabled={!draft.senderCompany.trim()}
+        disabled={!showSection && !draft.senderCompany.trim()}
         className="mt-5 px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-signal-sm hover:shadow-signal disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
       >
         Save & continue →
