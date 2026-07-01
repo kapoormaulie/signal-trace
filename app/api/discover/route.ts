@@ -28,6 +28,14 @@ export async function POST(req: NextRequest) {
   const mode: "icp" | "filters" = body?.mode ?? "icp";
   const requestedCount = Number(body?.count ?? 20);
   const numResults = Math.min(100, Math.max(1, Number.isFinite(requestedCount) ? requestedCount : 20));
+  const exclude = new Set(
+    (Array.isArray(body?.exclude) ? body.exclude : [])
+      .map((n: unknown) => String(n).trim().toLowerCase())
+      .filter(Boolean)
+  );
+  // Over-fetch so that after filtering out already-added companies we can still return
+  // up to numResults fresh ones (Exa's ceiling is 100 either way).
+  const fetchCount = Math.min(100, numResults + exclude.size);
 
   let query = "";
   if (mode === "icp") {
@@ -42,7 +50,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await exa.searchAndContents(query, {
-      numResults,
+      numResults: fetchCount,
       type: "neural",
       category: "company",
       summary: { query: "What does this company do and who are their customers?" },
@@ -55,9 +63,11 @@ export async function POST(req: NextRequest) {
         description: r.summary as string,
         url: r.url,
       }))
-      .filter((c) => c.name.length > 1 && c.name.split(" ").length <= 5);
+      .filter((c) => c.name.length > 1 && c.name.split(" ").length <= 5)
+      .filter((c) => !exclude.has(c.name.trim().toLowerCase()))
+      .slice(0, numResults);
 
-    log(`discover | found ${companies.length} companies`);
+    log(`discover | found ${companies.length} companies (excluded ${exclude.size} already-added)`);
     return NextResponse.json({ companies });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

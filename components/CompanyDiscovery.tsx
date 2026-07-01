@@ -32,6 +32,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
   const [icpDescription, setIcpDescription] = useState("");
   const [filters, setFilters] = useState({ industry: "", size: "", location: "", funding: "", keywords: "" });
   const [count, setCount] = useState(20);
+  const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvCompanies, setCsvCompanies] = useState<string[]>([]);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
@@ -62,9 +63,10 @@ export default function CompanyDiscovery({ onAdd }: Props) {
     setError(null);
     setResults([]);
     setSelected(new Set());
+    const exclude = Array.from(addedNames);
     const body = tab === "icp"
-      ? { mode: "icp", description: icpDescription, count }
-      : { mode: "filters", filters, count };
+      ? { mode: "icp", description: icpDescription, count, exclude }
+      : { mode: "filters", filters, count, exclude };
     try {
       const res = await fetch("/api/discover", {
         method: "POST",
@@ -73,8 +75,12 @@ export default function CompanyDiscovery({ onAdd }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Discovery failed");
-      setResults(data.companies ?? []);
-      setSelected(new Set(data.companies.map((c: DiscoveredCompany) => c.name)));
+      // Belt-and-suspenders — filter client-side too in case of casing/whitespace drift
+      const fresh: DiscoveredCompany[] = (data.companies ?? []).filter(
+        (c: DiscoveredCompany) => !addedNames.has(c.name.trim().toLowerCase())
+      );
+      setResults(fresh);
+      setSelected(new Set(fresh.map((c) => c.name)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -106,10 +112,17 @@ export default function CompanyDiscovery({ onAdd }: Props) {
   }
 
   function handleAddSelected() {
-    if (tab === "csv") {
-      onAdd(csvCompanies);
-    } else {
-      onAdd(results.filter((c) => selected.has(c.name)).map((c) => c.name));
+    const added = tab === "csv"
+      ? csvCompanies
+      : results.filter((c) => selected.has(c.name)).map((c) => c.name);
+    onAdd(added);
+    if (tab !== "csv") {
+      // Remember these so the next search excludes them and surfaces a fresh set instead
+      setAddedNames((prev) => {
+        const next = new Set(prev);
+        for (const name of added) next.add(name.trim().toLowerCase());
+        return next;
+      });
     }
     setResults([]);
     setCsvCompanies([]);
@@ -173,7 +186,10 @@ export default function CompanyDiscovery({ onAdd }: Props) {
               } focus:outline-none`}
             />
           </div>
-          <p className="text-[10px] text-ink-4 mt-1.5">Max 100 per search.</p>
+          <p className="text-[10px] text-ink-4 mt-1.5">
+            Max 100 per search.
+            {addedNames.size > 0 && ` Already added ${addedNames.size} — re-running will skip those and find a fresh set.`}
+          </p>
         </div>
       )}
 
