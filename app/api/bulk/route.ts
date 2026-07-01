@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, fetchCompanySignals, fetchPersonSignals, findPersonEmail } from "@/lib/exa";
 import { generateEmail, SenderContext } from "@/lib/claude";
 import { matchPersonInApollo, addContactToApollo, addContactToSequence } from "@/lib/apollo";
+import { findEmailViaHunter } from "@/lib/hunter";
 import { saveProspect } from "@/lib/redis";
 import { saveLp } from "@/lib/redis";
 import { makeSlug } from "@/lib/slugify";
@@ -80,22 +81,24 @@ export async function POST(req: NextRequest) {
     const [firstName, ...rest] = person.name.trim().split(" ");
     const lastName = rest.join(" ") || "-";
 
-    // Find email via Exa web search + Apollo match in parallel
-    const [exaEmailResult, apolloMatchResult] = await Promise.allSettled([
+    // Find email via Hunter.io + Exa web search + Apollo match in parallel
+    const [hunterEmailResult, exaEmailResult, apolloMatchResult] = await Promise.allSettled([
+      findEmailViaHunter(firstName, lastName, company),
       findPersonEmail(firstName, lastName, company, person.linkedinUrl),
       shouldPush
         ? matchPersonInApollo(firstName, lastName, company, person.linkedinUrl)
         : Promise.resolve({ email: null, title: null, apolloId: null }),
     ]);
 
+    const hunterEmail = hunterEmailResult.status === "fulfilled" ? hunterEmailResult.value : null;
     const exaEmail = exaEmailResult.status === "fulfilled" ? exaEmailResult.value : null;
     const matched = apolloMatchResult.status === "fulfilled"
       ? apolloMatchResult.value
       : { email: null, title: null, apolloId: null };
 
-    // Prefer Exa-found email (usually more accurate), fall back to Apollo match
-    const foundEmail = exaEmail ?? matched?.email ?? null;
-    if (foundEmail) log(`bulk | email found for ${person.name}: ${foundEmail} (via ${exaEmail ? "Exa" : "Apollo"})`);
+    // Hunter is purpose-built + confidence-scored, so it wins when it has an answer
+    const foundEmail = hunterEmail ?? exaEmail ?? matched?.email ?? null;
+    if (foundEmail) log(`bulk | email found for ${person.name}: ${foundEmail} (via ${hunterEmail ? "Hunter" : exaEmail ? "Exa" : "Apollo"})`);
 
     const contactId = shouldPush ? await addContactToApollo({
       firstName,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { matchPersonInApollo, addContactToApollo, addContactToSequence } from "@/lib/apollo";
+import { findEmailViaHunter } from "@/lib/hunter";
 import { log } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -17,13 +18,19 @@ export async function POST(req: NextRequest) {
   log(`push/apollo | ${prospect.name} @ ${prospect.company}`);
 
   try {
-    // If no email provided, try Apollo's people/match to find one
+    // If no email provided, try Hunter.io first (purpose-built), then Apollo's people/match
     let email: string | undefined = prospect.email;
     if (!email) {
-      const matched = await matchPersonInApollo(firstName, lastName, prospect.company, prospect.linkedinUrl, apolloApiKey).catch(() => null);
-      if (matched?.email) {
-        email = matched.email;
-        log(`push/apollo | email found via Apollo match: ${email}`);
+      const hunterEmail = await findEmailViaHunter(firstName, lastName, prospect.company).catch(() => null);
+      if (hunterEmail) {
+        email = hunterEmail;
+        log(`push/apollo | email found via Hunter: ${email}`);
+      } else {
+        const matched = await matchPersonInApollo(firstName, lastName, prospect.company, prospect.linkedinUrl, apolloApiKey).catch(() => null);
+        if (matched?.email) {
+          email = matched.email;
+          log(`push/apollo | email found via Apollo match: ${email}`);
+        }
       }
     }
 

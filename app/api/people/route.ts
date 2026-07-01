@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
+import { findEmailViaHunter } from "@/lib/hunter";
 import { log } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -23,12 +24,15 @@ export async function POST(req: NextRequest) {
         const [firstName, ...rest] = person.name.trim().split(" ");
         const lastName = rest.join(" ") || "-";
 
-        const [exaEmail, apolloMatch] = await Promise.allSettled([
+        const [hunterEmail, exaEmail, apolloMatch] = await Promise.allSettled([
+          findEmailViaHunter(firstName, lastName, company),
           findPersonEmail(firstName, lastName, company, person.linkedinUrl),
           matchPersonInApollo(firstName, lastName, company, person.linkedinUrl),
         ]);
 
+        // Hunter is purpose-built for this (confidence-scored), so it wins when it has an answer.
         const email =
+          (hunterEmail.status === "fulfilled" ? hunterEmail.value : null) ??
           (exaEmail.status === "fulfilled" ? exaEmail.value : null) ??
           (apolloMatch.status === "fulfilled" ? apolloMatch.value?.email : null) ??
           undefined;

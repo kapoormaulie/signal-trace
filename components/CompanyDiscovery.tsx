@@ -150,13 +150,30 @@ export default function CompanyDiscovery({ onAdd }: Props) {
       {tab !== "csv" && results.length === 0 && (
         <div>
           <label className="block text-xs font-medium text-ink-2 mb-2">How many companies?</label>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {RESULT_COUNTS.map((n) => (
               <span key={n} className={pillCls(count === n)} onClick={() => setCount(n)}>
                 Up to {n}
               </span>
             ))}
+            <input
+              type="number"
+              min={1}
+              max={100}
+              placeholder="Custom"
+              value={RESULT_COUNTS.includes(count) ? "" : count}
+              onChange={(e) => {
+                const v = Math.min(100, Math.max(1, Number(e.target.value) || 1));
+                setCount(v);
+              }}
+              className={`w-20 text-center text-xs rounded-xl border px-2 py-1.5 transition-all ${
+                !RESULT_COUNTS.includes(count)
+                  ? "border-brand-400 bg-[rgba(99,102,241,0.1)] text-brand-500 shadow-signal-sm"
+                  : "border-[var(--input-border)] text-ink-3 bg-[var(--input-bg)] focus:border-brand-300"
+              } focus:outline-none`}
+            />
           </div>
+          <p className="text-[10px] text-ink-4 mt-1.5">Max 100 per search.</p>
         </div>
       )}
 
