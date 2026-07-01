@@ -34,6 +34,10 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
   const [showWhy, setShowWhy] = useState(false);
   const [showApolloWhat, setShowApolloWhat] = useState(false);
   const [showSlackWhat, setShowSlackWhat] = useState(false);
+  const [showCrmWhat, setShowCrmWhat] = useState(false);
+  const [crmTab, setCrmTab] = useState<"apollo" | "other">(
+    settings.crmWebhookUrl?.trim() && !settings.apolloApiKey?.trim() ? "other" : "apollo"
+  );
 
   if (!open && draft.senderCompany !== settings.senderCompany) {
     setDraft(settings);
@@ -47,6 +51,8 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
 
   const apolloConnected = !!(draft.apolloApiKey?.trim() || settings.apolloApiKey?.trim());
   const slackConnected  = !!(draft.slackWebhookUrl?.trim() || settings.slackWebhookUrl?.trim());
+  const crmConnected    = !!(draft.crmWebhookUrl?.trim() || settings.crmWebhookUrl?.trim());
+  const eitherCrmConnected = apolloConnected || crmConnected;
 
   // ── Collapsed pill ─────────────────────────────────────────────────────────
   if (!open && !forceOpen) {
@@ -64,6 +70,11 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
             settings.apolloApiKey ? "border-emerald-400/25 text-emerald-500 bg-emerald-400/8" : "border-[var(--input-border)] text-ink-4"
           }`}>
             Apollo {settings.apolloApiKey ? "✓" : "—"}
+          </span>
+          <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${
+            settings.crmWebhookUrl ? "border-emerald-400/25 text-emerald-500 bg-emerald-400/8" : "border-[var(--input-border)] text-ink-4"
+          }`}>
+            CRM {settings.crmWebhookUrl ? "✓" : "—"}
           </span>
           <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${
             settings.slackWebhookUrl ? "border-emerald-400/25 text-emerald-500 bg-emerald-400/8" : "border-[var(--input-border)] text-ink-4"
@@ -123,7 +134,7 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
               {t === "profile" ? "Sender profile" : (
                 <span className="flex items-center gap-2">
                   Integrations
-                  {(!apolloConnected || !slackConnected) && (
+                  {(!eitherCrmConnected || !slackConnected) && (
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                   )}
                 </span>
@@ -220,91 +231,190 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
       {tab === "integrations" && (
         <div className="space-y-4">
 
-          {/* Apollo */}
+          {/* Apollo / Other CRM — one connection required, choose either as a sub-tab */}
           <div
             className="rounded-xl p-4"
             style={{
-              border: apolloConnected
+              border: eitherCrmConnected
                 ? "1px solid var(--input-border)"
                 : "1px solid rgba(239,68,68,0.35)",
-              background: apolloConnected ? "var(--input-bg)" : "rgba(239,68,68,0.03)",
+              background: eitherCrmConnected ? "var(--input-bg)" : "rgba(239,68,68,0.03)",
             }}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-[rgba(251,146,60,0.12)] border border-[rgba(251,146,60,0.2)] flex items-center justify-center text-sm">🚀</div>
+                <div className="w-7 h-7 rounded-lg bg-[rgba(251,146,60,0.12)] border border-[rgba(251,146,60,0.2)] flex items-center justify-center text-sm">
+                  {crmTab === "apollo" ? "🚀" : "🔗"}
+                </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-ink">Apollo.io</p>
-                    <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none tracking-wide">
-                      REQUIRED
-                    </span>
+                    <p className="text-sm font-semibold text-ink">
+                      {crmTab === "apollo" ? "Apollo.io" : "Other CRM (Webhook)"}
+                    </p>
+                    {!eitherCrmConnected && (
+                      <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none tracking-wide">
+                        REQUIRED
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-ink-4">CRM — adds contacts + enrols in sequences</p>
+                  <p className="text-[11px] text-ink-4">
+                    {crmTab === "apollo"
+                      ? "CRM — adds contacts + enrols in sequences"
+                      : "HubSpot, Pipedrive, Salesforce, Zapier, Make — anything that accepts a webhook"}
+                  </p>
                 </div>
               </div>
-              <StatusDot connected={apolloConnected} />
+              <StatusDot connected={crmTab === "apollo" ? apolloConnected : crmConnected} />
             </div>
 
-            {/* What Apollo does — collapsible */}
-            <div className="rounded-lg border border-[var(--input-border)] overflow-hidden mb-3">
+            {/* Sub-tab toggle */}
+            <div className="flex gap-1 mb-3 bg-[var(--surface)] rounded-lg p-1 w-fit border border-[var(--input-border)]">
               <button
-                onClick={() => setShowApolloWhat((v) => !v)}
-                className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--surface)] transition-colors"
+                onClick={() => setCrmTab("apollo")}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                  crmTab === "apollo"
+                    ? "bg-[var(--input-bg)] text-ink shadow-sm border border-[var(--input-border)]"
+                    : "text-ink-3 hover:text-ink-2"
+                }`}
               >
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-3">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
-                    <path d="M6 5.5v2.5M6 4h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-                  </svg>
-                  What this does
-                </span>
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
-                  className={`text-ink-4 transition-transform duration-200 ${showApolloWhat ? "rotate-180" : ""}`}>
-                  <path d="M2 3.5L5.5 7L9 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                Apollo API key
               </button>
-              {showApolloWhat && (
-                <div className="px-3 pb-3 pt-1 border-t border-[var(--input-border)] grid grid-cols-5 gap-2.5 bg-[var(--surface)]">
-                  {[
-                    { icon: "👤", text: "Creates contact in your Apollo account" },
-                    { icon: "📋", text: "Enrols them in your outbound sequence" },
-                    { icon: "📧", text: "Enriches missing email addresses" },
-                    { icon: "📊", text: "Tracks opens and replies in Apollo" },
-                    { icon: "🔄", text: "Syncs back to your existing CRM" },
-                  ].map((item) => (
-                    <div key={item.text} className="flex gap-1.5 items-start pt-1.5">
-                      <span className="text-sm shrink-0">{item.icon}</span>
-                      <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <button
+                onClick={() => setCrmTab("other")}
+                className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                  crmTab === "other"
+                    ? "bg-[var(--input-bg)] text-ink shadow-sm border border-[var(--input-border)]"
+                    : "text-ink-3 hover:text-ink-2"
+                }`}
+              >
+                Want to connect a different CRM?
+              </button>
             </div>
 
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-ink-2 mb-1.5">API Key</label>
-                <input
-                  className={inputCls}
-                  type="password"
-                  placeholder="Paste your Apollo API key…"
-                  value={draft.apolloApiKey ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, apolloApiKey: e.target.value }))}
-                />
-              </div>
-              <a
-                href="https://app.apollo.io/#/settings/integrations/api"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-brand-500 hover:text-brand-400 font-medium transition-colors pb-2 whitespace-nowrap"
-              >
-                Get key ↗
-              </a>
-            </div>
-            <p className="text-[10px] text-ink-4 mt-1.5">
-              Settings → Integrations → API Keys in Apollo. Free tier works. Overrides the server-level key if set.
-            </p>
+            {crmTab === "apollo" ? (
+              <>
+                {/* What Apollo does — collapsible */}
+                <div className="rounded-lg border border-[var(--input-border)] overflow-hidden mb-3">
+                  <button
+                    onClick={() => setShowApolloWhat((v) => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--surface)] transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-3">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M6 5.5v2.5M6 4h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      </svg>
+                      What this does
+                    </span>
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+                      className={`text-ink-4 transition-transform duration-200 ${showApolloWhat ? "rotate-180" : ""}`}>
+                      <path d="M2 3.5L5.5 7L9 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  {showApolloWhat && (
+                    <div className="px-3 pb-3 pt-1 border-t border-[var(--input-border)] grid grid-cols-5 gap-2.5 bg-[var(--surface)]">
+                      {[
+                        { icon: "👤", text: "Creates contact in your Apollo account" },
+                        { icon: "📋", text: "Enrols them in your outbound sequence" },
+                        { icon: "📧", text: "Enriches missing email addresses" },
+                        { icon: "📊", text: "Tracks opens and replies in Apollo" },
+                        { icon: "🔄", text: "Syncs back to your existing CRM" },
+                      ].map((item) => (
+                        <div key={item.text} className="flex gap-1.5 items-start pt-1.5">
+                          <span className="text-sm shrink-0">{item.icon}</span>
+                          <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-ink-2 mb-1.5">API Key</label>
+                    <input
+                      className={inputCls}
+                      type="password"
+                      placeholder="Paste your Apollo API key…"
+                      value={draft.apolloApiKey ?? ""}
+                      onChange={(e) => setDraft((d) => ({ ...d, apolloApiKey: e.target.value }))}
+                    />
+                  </div>
+                  <a
+                    href="https://app.apollo.io/#/settings/integrations/api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-brand-500 hover:text-brand-400 font-medium transition-colors pb-2 whitespace-nowrap"
+                  >
+                    Get key ↗
+                  </a>
+                </div>
+                <p className="text-[10px] text-ink-4 mt-1.5">
+                  Settings → Integrations → API Keys in Apollo. Free tier works. Overrides the server-level key if set.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* What a CRM webhook does — collapsible */}
+                <div className="rounded-lg border border-[var(--input-border)] overflow-hidden mb-3">
+                  <button
+                    onClick={() => setShowCrmWhat((v) => !v)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-[var(--surface)] transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-3">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2"/>
+                        <path d="M6 5.5v2.5M6 4h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                      </svg>
+                      What this does
+                    </span>
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none"
+                      className={`text-ink-4 transition-transform duration-200 ${showCrmWhat ? "rotate-180" : ""}`}>
+                      <path d="M2 3.5L5.5 7L9 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </button>
+                  {showCrmWhat && (
+                    <div className="px-3 pb-3 pt-1 border-t border-[var(--input-border)] grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-[var(--surface)]">
+                      {[
+                        { icon: "🎯", text: "Not on Apollo? Point this at a Zapier/Make webhook to reach almost any CRM" },
+                        { icon: "📥", text: "Works with HubSpot & Pipedrive's own inbound webhook triggers directly" },
+                        { icon: "📦", text: "We POST the full prospect record — name, email, signal, scores, LP link" },
+                        { icon: "🔀", text: "Use this instead of Apollo, or fill in both to push to each" },
+                      ].map((item) => (
+                        <div key={item.text} className="flex gap-1.5 items-start pt-1.5">
+                          <span className="text-sm shrink-0">{item.icon}</span>
+                          <p className="text-[10px] text-ink-4 leading-relaxed">{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-ink-2 mb-1.5">Webhook URL</label>
+                    <input
+                      className={inputCls}
+                      type="password"
+                      placeholder="https://hooks.zapier.com/hooks/catch/…"
+                      value={draft.crmWebhookUrl ?? ""}
+                      onChange={(e) => setDraft((d) => ({ ...d, crmWebhookUrl: e.target.value }))}
+                    />
+                  </div>
+                  <a
+                    href="https://zapier.com/apps/webhook/integrations"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] text-brand-500 hover:text-brand-400 font-medium transition-colors pb-2 whitespace-nowrap"
+                  >
+                    Zapier webhooks ↗
+                  </a>
+                </div>
+                <p className="text-[10px] text-ink-4 mt-1.5">
+                  An alternative to Apollo — fill in one or the other (or both).
+                </p>
+              </>
+            )}
           </div>
 
           {/* Slack */}
@@ -377,6 +487,27 @@ export default function SettingsBar({ settings, onSave, isConfigured, forceOpen,
             </div>
             <p className="text-[10px] text-ink-4 mt-1.5">
               api.slack.com/apps → Create App → Incoming Webhooks → Activate → Add New Webhook. Takes 2 minutes.
+            </p>
+          </div>
+
+          {/* Team email — mailto fallback when Slack isn't set up */}
+          <div className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] p-4">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-[rgba(99,102,241,0.1)] border border-[rgba(99,102,241,0.15)] flex items-center justify-center text-sm">✉️</div>
+              <div>
+                <p className="text-sm font-semibold text-ink">Team email</p>
+                <p className="text-[11px] text-ink-4">Used to pre-fill a &quot;notify team&quot; email if Slack isn&apos;t connected</p>
+              </div>
+            </div>
+            <input
+              className={inputCls}
+              type="email"
+              placeholder="team@yourcompany.com"
+              value={draft.teamEmail ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, teamEmail: e.target.value }))}
+            />
+            <p className="text-[10px] text-ink-4 mt-1.5">
+              Opens your own email client with the lead pre-filled — nothing is sent from our servers.
             </p>
           </div>
 

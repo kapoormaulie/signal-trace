@@ -8,6 +8,8 @@ export interface UserSettings {
   defaultCtaUrl: string;
   apolloApiKey: string;
   slackWebhookUrl: string;
+  crmWebhookUrl: string;
+  teamEmail: string;
 }
 
 const KEY = "signaltrace_settings";
@@ -17,6 +19,8 @@ const EMPTY: UserSettings = {
   defaultCtaUrl: "",
   apolloApiKey: "",
   slackWebhookUrl: "",
+  crmWebhookUrl: "",
+  teamEmail: "",
 };
 
 export function useSettings() {

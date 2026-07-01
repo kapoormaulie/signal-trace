@@ -5,6 +5,8 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import EcgLoader from "@/components/EcgLoader";
 import HistoryTable from "@/components/HistoryTable";
+import { toCsv, downloadCsv } from "@/lib/csv";
+import { getDeviceId } from "@/lib/deviceId";
 import type { ProspectRecord } from "@/types";
 
 export default function HistoryPage() {
@@ -13,7 +15,7 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/history")
+    fetch(`/api/history?deviceId=${encodeURIComponent(getDeviceId())}`)
       .then((r) => r.json())
       .then((d) => setProspects(d.prospects ?? []))
       .catch(() => setError("Failed to load history"))
@@ -38,11 +40,39 @@ export default function HistoryPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-ink tracking-tight">Prospect history</h1>
-          <p className="text-xs text-ink-3 mt-0.5">
-            All contacts with LP visit tracking. Red rows = no LP opens after 7 days.
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-ink tracking-tight">Prospect history</h1>
+            <p className="text-xs text-ink-3 mt-0.5">
+              All contacts with LP visit tracking. Red rows = no LP opens after 7 days.
+            </p>
+          </div>
+          {prospects.length > 0 && (
+            <button
+              onClick={() => {
+                const csv = toCsv(
+                  prospects.map((p) => ({
+                    Name: p.name,
+                    Company: p.company,
+                    Email: p.email ?? "",
+                    "Subject line": p.subjectLine,
+                    "Signal used": p.signalUsed ?? "",
+                    Personalization: p.scores.personalization,
+                    Clarity: p.scores.clarity,
+                    CTA: p.scores.cta,
+                    "Landing page": p.lpUrl,
+                    "LP visits": p.lpVisits.length,
+                    "Contacted at": p.contactedAt,
+                    Pushed: p.pushed ? "yes" : "no",
+                  }))
+                );
+                downloadCsv(`prospect-history-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+              }}
+              className="shrink-0 text-xs font-semibold text-brand-600 hover:text-brand-500 border border-[var(--input-border)] hover:border-brand-300 rounded-lg px-3 py-1.5 transition-all"
+            >
+              ⬇ Export CSV
+            </button>
+          )}
         </div>
 
         {loading && <EcgLoader label="Loading history…" />}

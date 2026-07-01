@@ -5,9 +5,12 @@ import type { ProspectRecord } from "@/types";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const prospects = await getAllProspects();
+    const deviceId = req.nextUrl.searchParams.get("deviceId") || undefined;
+    if (!deviceId) return NextResponse.json({ prospects: [] });
+
+    const prospects = await getAllProspects(deviceId);
     const now = Date.now();
 
     const annotated = prospects.map((p) => ({

@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   const targetRole: string = body?.targetRole ?? "decision-maker";
   const autoPush: boolean = body?.autoPush !== false;
   const minScore: number = Number(body?.minScore ?? 6);
+  const deviceId: string | undefined = body?.deviceId || undefined;
   const sender: SenderContext = {
     senderCompany: body?.senderCompany ?? "",
     senderName: body?.senderName ?? "",
@@ -132,6 +133,7 @@ export async function POST(req: NextRequest) {
       contactedAt: new Date().toISOString(),
       lpVisits: [],
       pushed: !!contactId,
+      deviceId,
     });
 
     log(`bulk | done: ${person.name} @ ${company} | scores P=${result.scores.personalization} C=${result.scores.clarity} CTA=${result.scores.cta}`);

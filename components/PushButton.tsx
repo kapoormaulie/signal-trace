@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { QualityScores } from "@/types";
+import { toCsv, downloadCsv } from "@/lib/csv";
 
 type PushStatus = "idle" | "loading" | "success" | "error";
 
@@ -10,12 +11,24 @@ interface Props {
   ctaUrl?: string;
   apolloApiKey?: string;
   slackWebhookUrl?: string;
+  crmWebhookUrl?: string;
+  teamEmail?: string;
   onPush: () => void;
   onOpenIntegrations?: () => void;
   instantlyStatus: PushStatus;
   slackStatus: PushStatus;
+  crmStatus?: PushStatus;
   onRetryInstantly: () => void;
   onRetrySlack: () => void;
+  onRetryCrm?: () => void;
+  // Report data — used for the CSV download + "notify team" mailto link only
+  prospectName?: string;
+  company?: string;
+  email?: string;
+  subjectLine?: string;
+  emailBody?: string;
+  signalUsed?: string;
+  lpUrl?: string;
 }
 
 const THRESHOLD = 6;
@@ -30,12 +43,23 @@ export default function PushButton({
   ctaUrl,
   apolloApiKey,
   slackWebhookUrl,
+  crmWebhookUrl,
+  teamEmail,
   onPush,
   onOpenIntegrations,
   instantlyStatus,
   slackStatus,
+  crmStatus = "idle",
   onRetryInstantly,
   onRetrySlack,
+  onRetryCrm,
+  prospectName,
+  company,
+  email,
+  subjectLine,
+  emailBody,
+  signalUsed,
+  lpUrl,
 }: Props) {
   const [acknowledged, setAcknowledged] = useState(false);
   const [ctaAcknowledged, setCtaAcknowledged] = useState(false);
@@ -45,16 +69,56 @@ export default function PushButton({
   );
   const needsAck = lowDims.length > 0;
   const noCtaUrl = !ctaUrl?.trim();
-  const noApolloKey = !apolloApiKey?.trim();
-  const noSlackUrl  = !slackWebhookUrl?.trim();
-  const canPush = !noApolloKey && (!needsAck || acknowledged) && (!noCtaUrl || ctaAcknowledged);
-  const isPushing = instantlyStatus === "loading" || slackStatus === "loading";
-  const hasPushed = instantlyStatus !== "idle" || slackStatus !== "idle";
+  const hasApollo = !!apolloApiKey?.trim();
+  const hasCrm    = !!crmWebhookUrl?.trim();
+  const noSlackUrl = !slackWebhookUrl?.trim();
+  const noCrmTarget = !hasApollo && !hasCrm; // must fill at least one of Apollo or another CRM webhook
+  const canPush = !noCrmTarget && (!needsAck || acknowledged) && (!noCtaUrl || ctaAcknowledged);
+  const isPushing =
+    (hasApollo && instantlyStatus === "loading") ||
+    slackStatus === "loading" ||
+    (hasCrm && crmStatus === "loading");
+  const hasPushed =
+    (hasApollo && instantlyStatus !== "idle") ||
+    slackStatus !== "idle" ||
+    (hasCrm && crmStatus !== "idle");
+
+  function handleDownloadReport() {
+    const csv = toCsv([
+      {
+        Name: prospectName ?? "",
+        Company: company ?? "",
+        Email: email ?? "",
+        "Subject line": subjectLine ?? "",
+        "Signal used": signalUsed ?? "",
+        "Personalization score": scores.personalization,
+        "Clarity score": scores.clarity,
+        "CTA score": scores.cta,
+        "Landing page": lpUrl ?? "",
+        "Email body": emailBody ?? "",
+        "Generated at": new Date().toISOString(),
+      },
+    ]);
+    const safeName = (prospectName || company || "prospect").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    downloadCsv(`prospect-report-${safeName}.csv`, csv);
+  }
+
+  function handleEmailTeam() {
+    const subject = `New lead: ${prospectName ?? "Prospect"} at ${company ?? ""}`;
+    const bodyLines = [
+      `${prospectName ?? "A prospect"} at ${company ?? ""} was just pushed via SignalTrace.`,
+      signalUsed ? `Signal: ${signalUsed}` : null,
+      `Scores — Personalization: ${scores.personalization}/10, Clarity: ${scores.clarity}/10, CTA: ${scores.cta}/10`,
+      lpUrl ? `Landing page: ${lpUrl}` : null,
+    ].filter(Boolean);
+    const mailto = `mailto:${encodeURIComponent(teamEmail ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+    window.location.href = mailto;
+  }
 
   return (
     <div className="space-y-3">
-      {/* Apollo API key missing — hard block */}
-      {noApolloKey && !hasPushed && (
+      {/* Neither Apollo nor another CRM webhook configured — hard block */}
+      {noCrmTarget && !hasPushed && (
         <div className="rounded-xl border border-red-400/50 bg-[rgba(239,68,68,0.06)] px-4 py-3.5">
           <div className="flex items-start gap-3">
             <svg className="shrink-0 mt-0.5 text-red-500" width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -62,9 +126,9 @@ export default function PushButton({
               <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-red-500 mb-0.5">Apollo API key not configured</p>
+              <p className="text-sm font-semibold text-red-500 mb-0.5">No CRM connected</p>
               <p className="text-xs text-red-400/80 leading-relaxed mb-3">
-                Without an API key, this lead will not be pushed to your Apollo account or enrolled in any sequence. Add your key in Integrations to enable CRM push.
+                This lead has nowhere to go. Add your Apollo API key, or fill in a CRM webhook URL as an alternative — only one of the two is required.
               </p>
               {onOpenIntegrations && (
                 <button
@@ -79,7 +143,7 @@ export default function PushButton({
         </div>
       )}
 
-      {/* Slack webhook missing — soft notice */}
+      {/* Slack webhook missing — soft notice + email fallback */}
       {noSlackUrl && !hasPushed && (
         <div className="rounded-xl border border-amber-400/40 bg-[rgba(251,191,36,0.05)] px-4 py-3">
           <div className="flex items-start justify-between gap-3">
@@ -104,7 +168,23 @@ export default function PushButton({
               </button>
             )}
           </div>
+          <button
+            onClick={handleEmailTeam}
+            className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 hover:text-amber-500 transition-colors"
+          >
+            ✉️ Notify team via email instead
+          </button>
         </div>
+      )}
+
+      {/* Already have one CRM target — low-emphasis suggestion to add the other, not required */}
+      {hasApollo && !hasCrm && !hasPushed && onOpenIntegrations && (
+        <button
+          onClick={onOpenIntegrations}
+          className="w-full text-left rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-[11px] text-ink-3 hover:text-brand-500 hover:border-brand-300 transition-all"
+        >
+          🔗 Also want this synced to HubSpot, Pipedrive, Salesforce, or another CRM? Connect a webhook →
+        </button>
       )}
 
       {/* CTA URL warning */}
@@ -160,18 +240,27 @@ export default function PushButton({
               Pushing…
             </span>
           ) : (
-            "Push to Apollo + Slack →"
+            `Push to ${[hasApollo && "Apollo", "Slack", hasCrm && "CRM"].filter(Boolean).join(" + ")} →`
           )}
         </button>
       )}
 
       {/* Per-service status */}
       {hasPushed && (
-        <div className="grid grid-cols-2 gap-3">
-          <ServiceRow name="Apollo" status={instantlyStatus} onRetry={onRetryInstantly} />
-          <ServiceRow name="Slack"  status={slackStatus}     onRetry={onRetrySlack} />
+        <div className={`grid gap-3 ${hasApollo && hasCrm ? "grid-cols-3" : "grid-cols-2"}`}>
+          {hasApollo && <ServiceRow name="Apollo" status={instantlyStatus} onRetry={onRetryInstantly} />}
+          <ServiceRow name="Slack" status={slackStatus} onRetry={onRetrySlack} />
+          {hasCrm && <ServiceRow name="CRM" status={crmStatus} onRetry={onRetryCrm ?? (() => {})} />}
         </div>
       )}
+
+      {/* Download prospect report — always available, no integration required */}
+      <button
+        onClick={handleDownloadReport}
+        className="w-full py-2 rounded-xl border border-[var(--input-border)] text-ink-3 hover:text-brand-500 hover:border-brand-300 text-xs font-semibold transition-all"
+      >
+        ⬇ Download prospect report (CSV)
+      </button>
     </div>
   );
 }
