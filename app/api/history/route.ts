@@ -7,10 +7,11 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
   try {
-    const deviceId = req.nextUrl.searchParams.get("deviceId") || undefined;
-    if (!deviceId) return NextResponse.json({ prospects: [] });
+    // scopeId is either a per-browser deviceId or, once logged in, the account's userId
+    const scopeId = req.nextUrl.searchParams.get("scopeId") || undefined;
+    if (!scopeId) return NextResponse.json({ prospects: [] });
 
-    const prospects = await getAllProspects(deviceId);
+    const prospects = await getAllProspects(scopeId);
     const now = Date.now();
 
     const annotated = prospects.map((p) => ({

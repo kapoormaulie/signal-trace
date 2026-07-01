@@ -17,6 +17,7 @@ import PeoplePicker from "@/components/PeoplePicker";
 import CompanyDiscovery from "@/components/CompanyDiscovery";
 import SettingsBar from "@/components/SettingsBar";
 import { useSettings } from "@/hooks/useSettings";
+import { useAuth } from "@/hooks/useAuth";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { getDeviceId } from "@/lib/deviceId";
 import type {
@@ -285,8 +286,10 @@ function EntryPanel({
 // ─── BulkSection ─────────────────────────────────────────────────────────────
 function BulkSection({
   settings,
+  userId,
 }: {
   settings: { senderCompany: string; senderName: string; defaultCtaUrl: string };
+  userId?: string;
 }) {
   const [options, setOptions] = useState<BulkOptions>({
     targetRole: "decision-maker",
@@ -327,7 +330,8 @@ function BulkSection({
     if (!companies.length) return;
     setRows(companies.map((c) => ({ company: c, status: "queued" })));
     setRunning(true);
-    for (const company of companies) {
+
+    async function processOne(company: string) {
       patchRow(company, { status: "processing" });
       try {
         const res = await fetch("/api/bulk", {
@@ -342,6 +346,7 @@ function BulkSection({
             senderName: settings.senderName,
             defaultCtaUrl: settings.defaultCtaUrl,
             deviceId: getDeviceId(),
+            userId,
           }),
         });
         const data = await res.json();
@@ -360,6 +365,22 @@ function BulkSection({
         patchRow(company, { status: "error", error: "Network error" });
       }
     }
+
+    // Run several companies at once instead of one-at-a-time — each is an independent
+    // Exa + Groq + Apollo round trip, so a small worker pool cuts wall-clock time a lot
+    // without hammering rate limits the way full parallelism would.
+    const BULK_CONCURRENCY = 4;
+    let cursor = 0;
+    async function worker() {
+      while (cursor < companies.length) {
+        const company = companies[cursor++];
+        await processOne(company);
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(BULK_CONCURRENCY, companies.length) }, worker)
+    );
+
     setRunning(false);
   }
 
@@ -630,7 +651,8 @@ export default function HomePage() {
   const [state, setState] = useState<AppState>(INITIAL);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const update = (patch: Partial<AppState>) => setState((prev) => ({ ...prev, ...patch }));
-  const { settings, save: saveSettings, loaded: settingsLoaded, isConfigured } = useSettings();
+  const { user, loading: authLoading, logout } = useAuth();
+  const { settings, save: saveSettings, loaded: settingsLoaded, isConfigured } = useSettings(user?.id);
 
   async function handleCompanyLookup(company: string) {
     update({ stage: "company-lookup", lookupCompany: company, error: null });
@@ -718,7 +740,7 @@ export default function HomePage() {
         : Promise.resolve(null),
     ]);
     update({ instantlyStatus: instOk === null ? "idle" : instOk ? "success" : "error", slackStatus: slackOk ? "success" : "error", crmStatus: crmOk === null ? "idle" : crmOk ? "success" : "error" });
-    fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, emailBody: editedEmailBody, subjectLine, lpSlug, lpUrl, scores: generation.scores, signalUsed: selectedSignal?.title, contactedAt: new Date().toISOString(), lpVisits: [], pushed: (instOk !== false) && slackOk && (crmOk !== false), deviceId: getDeviceId() }) }).catch(() => {});
+    fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, emailBody: editedEmailBody, subjectLine, lpSlug, lpUrl, scores: generation.scores, signalUsed: selectedSignal?.title, contactedAt: new Date().toISOString(), lpVisits: [], pushed: (instOk !== false) && slackOk && (crmOk !== false), deviceId: getDeviceId(), userId: user?.id }) }).catch(() => {});
   }
 
   async function handleRetryApollo() {
@@ -849,6 +871,24 @@ export default function HomePage() {
                   <span className="text-[9px] font-bold text-white bg-red-500 px-1.5 py-0.5 rounded-full leading-none">Required</span>
                 )}
               </button>
+              <span className="w-px h-4 bg-[var(--mist)]" />
+              {!authLoading && (
+                user ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-ink-3 max-w-[140px] truncate" title={user.email}>{user.email}</span>
+                    <button
+                      onClick={() => { logout(); setState(INITIAL); }}
+                      className="text-xs font-semibold text-ink-3 hover:text-ink transition-colors"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                ) : (
+                  <Link href="/login" className="text-xs font-semibold text-brand-600 hover:text-brand-500 transition-colors">
+                    Log in
+                  </Link>
+                )
+              )}
               <ThemeToggle />
             </nav>
 
@@ -899,6 +939,25 @@ export default function HomePage() {
                 </span>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2L9 6L4 10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </button>
+              {!authLoading && (
+                user ? (
+                  <button
+                    onClick={() => { logout(); setState(INITIAL); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center justify-between h-10 px-3 rounded-lg text-sm font-medium text-ink-2 hover:bg-[var(--input-bg)] transition-colors"
+                  >
+                    <span className="truncate">{user.email}</span>
+                    <span className="text-xs text-ink-3 shrink-0">Log out</span>
+                  </button>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center h-10 px-3 rounded-lg text-sm font-medium text-brand-600 hover:bg-[var(--input-bg)] transition-colors"
+                  >
+                    Log in
+                  </Link>
+                )
+              )}
             </div>
           )}
         </header>
@@ -920,7 +979,7 @@ export default function HomePage() {
               />
 
               {/* ── BULK ─────────────────────────────────────── */}
-              {tab === "bulk" && <BulkSection settings={settings} />}
+              {tab === "bulk" && <BulkSection settings={settings} userId={user?.id} />}
             </>
           )}
 

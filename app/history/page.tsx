@@ -7,20 +7,24 @@ import EcgLoader from "@/components/EcgLoader";
 import HistoryTable from "@/components/HistoryTable";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { getDeviceId } from "@/lib/deviceId";
+import { useAuth } from "@/hooks/useAuth";
 import type { ProspectRecord } from "@/types";
 
 export default function HistoryPage() {
+  const { user, loading: authLoading } = useAuth();
   const [prospects, setProspects] = useState<ProspectRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/history?deviceId=${encodeURIComponent(getDeviceId())}`)
+    if (authLoading) return;
+    const scopeId = user?.id ?? getDeviceId();
+    fetch(`/api/history?scopeId=${encodeURIComponent(scopeId)}`)
       .then((r) => r.json())
       .then((d) => setProspects(d.prospects ?? []))
       .catch(() => setError("Failed to load history"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, authLoading]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -45,6 +49,7 @@ export default function HistoryPage() {
             <h1 className="text-xl font-bold text-ink tracking-tight">Prospect history</h1>
             <p className="text-xs text-ink-3 mt-0.5">
               All contacts with LP visit tracking. Red rows = no LP opens after 7 days.
+              {" "}{user ? `Synced to ${user.email}.` : "Stored on this device only — log in to sync across devices."}
             </p>
           </div>
           {prospects.length > 0 && (

@@ -79,6 +79,7 @@ export interface ProspectRecord {
   lpVisits: string[];  // ISO timestamps
   pushed: boolean;
   deviceId?: string;   // browser that created this record — scopes /history to that device
+  userId?: string;     // logged-in account that created this record — scopes /history to that account
 }
 
 export interface ProspectInput {

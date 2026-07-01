@@ -26,6 +26,8 @@ function buildFilterQuery(filters: Record<string, string>): string {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const mode: "icp" | "filters" = body?.mode ?? "icp";
+  const requestedCount = Number(body?.count ?? 20);
+  const numResults = Math.min(100, Math.max(1, Number.isFinite(requestedCount) ? requestedCount : 20));
 
   let query = "";
   if (mode === "icp") {
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const response = await exa.searchAndContents(query, {
-      numResults: 20,
+      numResults,
       type: "neural",
       category: "company",
       summary: { query: "What does this company do and who are their customers?" },

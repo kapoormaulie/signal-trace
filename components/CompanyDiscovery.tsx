@@ -18,6 +18,7 @@ const INDUSTRIES = ["B2B SaaS", "FinTech", "HealthTech", "EdTech", "E-commerce",
 const SIZES      = ["1–10", "11–50", "51–200", "201–500", "501–1000", "1000+"];
 const LOCATIONS  = ["United States", "United Kingdom", "Europe", "India", "Canada", "Australia", "Global"];
 const FUNDINGS   = ["Bootstrapped", "Pre-Seed", "Seed", "Series A", "Series B", "Series C+", "Public"];
+const RESULT_COUNTS = [10, 20, 50, 100];
 
 const INPUT = "w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-4 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50 transition-all";
 const BTN   = "px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-signal-sm hover:shadow-signal disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none";
@@ -30,6 +31,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [icpDescription, setIcpDescription] = useState("");
   const [filters, setFilters] = useState({ industry: "", size: "", location: "", funding: "", keywords: "" });
+  const [count, setCount] = useState(20);
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvCompanies, setCsvCompanies] = useState<string[]>([]);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
@@ -61,8 +63,8 @@ export default function CompanyDiscovery({ onAdd }: Props) {
     setResults([]);
     setSelected(new Set());
     const body = tab === "icp"
-      ? { mode: "icp", description: icpDescription }
-      : { mode: "filters", filters };
+      ? { mode: "icp", description: icpDescription, count }
+      : { mode: "filters", filters, count };
     try {
       const res = await fetch("/api/discover", {
         method: "POST",
@@ -143,6 +145,20 @@ export default function CompanyDiscovery({ onAdd }: Props) {
           <button className={tabCls(tab === "csv")}    onClick={() => { setTab("csv");     setResults([]); }}>Import CSV</button>
         </div>
       </div>
+
+      {/* How many companies to find — shared by ICP + Filter builder */}
+      {tab !== "csv" && results.length === 0 && (
+        <div>
+          <label className="block text-xs font-medium text-ink-2 mb-2">How many companies?</label>
+          <div className="flex flex-wrap gap-1.5">
+            {RESULT_COUNTS.map((n) => (
+              <span key={n} className={pillCls(count === n)} onClick={() => setCount(n)}>
+                Up to {n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── ICP Match ─────────────────────────────────────────── */}
       {tab === "icp" && results.length === 0 && (
@@ -265,7 +281,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1">
             {results.map((c) => (
               <button
                 key={c.name}
