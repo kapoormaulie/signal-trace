@@ -1,6 +1,6 @@
 # SignalTrace — Complete Project Reference
 
-> Signal-powered cold email tool. Finds live buying signals for a prospect, generates a hyper-personalised email + landing page, then pushes to Apollo CRM and Slack — all in one flow.
+> Signal-powered cold email tool. Finds live buying signals for a prospect, generates a hyper-personalised email + landing page, then pushes to Apollo (or any CRM via webhook) and Slack — all in one flow. Optional login syncs settings + history to an account.
 
 ---
 
@@ -47,9 +47,11 @@ HUNTER_API_KEY=your_hunter_api_key   # optional — email finder/verifier, free 
 | Signal search | Exa (web search API) |
 | CRM push | Apollo.io v1 REST API |
 | Notifications | Slack Incoming Webhook |
-| Storage | Upstash Redis (history + landing pages) |
+| Storage | Upstash Redis (history + landing pages + users/sessions/account settings) |
 | Duplicate detection | Fuse.js fuzzy match |
-| State | React `useState` + localStorage (settings) |
+| State | React `useState` + localStorage (settings, logged-out) or account (logged-in) |
+| Auth | Self-built email/password — Node `crypto.scrypt` hashing, Redis-backed session cookies (no new deps/services) |
+| Email enrichment | Hunter.io (optional — no-ops without `HUNTER_API_KEY`) |
 
 ---
 
@@ -62,22 +64,28 @@ SignalTrace/
 │   ├── page.tsx                # Main app page (single + bulk flows)
 │   ├── globals.css             # Design tokens, ALL animations, dark mode vars
 │   ├── history/
-│   │   └── page.tsx            # History list page
+│   │   └── page.tsx            # History list page — scoped by userId (logged in) or deviceId
+│   ├── login/
+│   │   └── page.tsx            # Combined login/signup, tab toggle
 │   ├── lp/
 │   │   └── [slug]/
 │   │       ├── page.tsx        # Server component — Redis visit logging + renders LpPage
 │   │       └── LpPage.tsx      # CLIENT component — full premium standalone LP
 │   └── api/
-│       ├── people/             # Exa people search
+│       ├── people/             # Exa people search (+ Hunter/Apollo email enrichment)
 │       ├── signals/            # Exa signal search + duplicate check
 │       ├── generate/           # Groq email + LP generation
 │       ├── lp/                 # LP create/update in Redis
-│       ├── history/            # Redis history read/write
-│       ├── discover/           # ICP company discovery
+│       ├── history/            # Redis history read/write (?scopeId=deviceId|userId)
+│       ├── discover/           # ICP company discovery (count + exclude params)
+│       ├── settings/           # GET/POST account-scoped settings (requires session)
+│       ├── auth/
+│       │   └── {signup,login,logout,me}/route.ts
 │       ├── push/
-│       │   ├── apollo/         # Apollo CRM push
+│       │   ├── apollo/         # Apollo CRM push (+ Hunter email fallback)
+│       │   ├── crm/            # Generic CRM webhook relay (Zapier/Make/HubSpot/etc.)
 │       │   └── slack/          # Slack webhook push
-│       └── bulk/               # Bulk generation orchestrator
+│       └── bulk/               # Bulk generation orchestrator — 4-worker concurrency
 │
 ├── components/
 │   ├── BackgroundCanvas.tsx    # Fixed bg: line-grid + dot-grid + 4 blobs + 5 beams + 25 particles + 8 rings
@@ -93,18 +101,24 @@ SignalTrace/
 │   ├── SubjectLineVariants.tsx # 3 subject lines
 │   ├── QualityScores.tsx       # Animated score bars
 │   ├── ReviewPanel.tsx         # Email + LP editor (mobile: tab switcher)
-│   ├── PushButton.tsx          # Push to Apollo+Slack — blocks if no Apollo key
+│   ├── PushButton.tsx          # Push to Apollo/CRM (one required) + Slack — CSV download always available
 │   └── HistoryTable.tsx        # History with LP visit counts
 │
 ├── hooks/
-│   └── useSettings.ts          # localStorage settings hook
+│   ├── useSettings.ts          # localStorage (logged out) or /api/settings (logged in) settings hook
+│   └── useAuth.ts              # { user, loading, logout } — fetches /api/auth/me
 │
 ├── lib/
 │   ├── claude.ts               # Groq generation — email + full rich LP in one call
 │   ├── exa.ts                  # Exa search
 │   ├── apollo.ts               # Apollo CRM
 │   ├── slack.ts                # Slack webhook
-│   ├── redis.ts                # Upstash Redis
+│   ├── crm.ts                  # Generic CRM webhook POST client
+│   ├── hunter.ts               # Hunter.io email finder/verifier (optional)
+│   ├── auth.ts                 # scrypt password hashing + session cookie helpers
+│   ├── csv.ts                  # CSV serializer + browser download trigger
+│   ├── deviceId.ts             # localStorage UUID for logged-out history scoping
+│   ├── redis.ts                # Upstash Redis — prospects, LPs, users/sessions/settings
 │   ├── slugify.ts              # LP slug
 │   ├── fuzzy.ts                # Fuse.js duplicate detection
 │   └── logger.ts               # Logging
@@ -113,7 +127,7 @@ SignalTrace/
 │   └── index.ts                # All shared types — LandingPageContent is rich (see below)
 │
 ├── tailwind.config.ts          # CSS var-backed design tokens
-├── sarah-retool.html           # Reference LP (inspiration for LpPage.tsx design)
+├── sarah-retool.html           # Reference LP — currently MISSING from working tree (deleted, uncommitted, predates the auth/CRM session)
 ├── CLAUDE.md                   # This file
 └── session-archive.html        # Full build session log
 ```
@@ -211,23 +225,27 @@ Right-side slide-in panel — NOT a full-screen overlay.
 Collapsible "Why this makes your emails work" accordion (`showWhy` state, chevron rotates).
 
 **Integrations tab**:
-- Apollo API key input + collapsible "What this does" accordion (`showApolloWhat` state)
+- **Apollo / Other CRM** — ONE merged card, not two. Sub-tab toggle inside the card: "Apollo API key" vs "Want to connect a different CRM?" (`crmTab` state). Whichever is filled satisfies the CRM requirement — the red REQUIRED badge only shows if *neither* Apollo nor the CRM webhook is set (`eitherCrmConnected`). Apollo tab has its own collapsible "What this does" (`showApolloWhat`); CRM tab has its own (`showCrmWhat`).
 - Slack webhook URL + collapsible "What this does" accordion (`showSlackWhat` state)
+- Team email input — used to pre-fill the "notify team" mailto: link when Slack isn't connected
 
-Settings stored in `localStorage` via `useSettings` hook and passed down to `PushButton`.
+Settings stored via `useSettings(userId)`: `localStorage` when logged out, `/api/settings` (Redis, account-scoped) when logged in. Passed down to `PushButton`.
 
 ---
 
 ## PushButton Blocking Logic (PushButton.tsx)
 
-Props: `apolloApiKey`, `slackWebhookUrl`, `onOpenIntegrations`, plus push handlers.
+Props: `apolloApiKey`, `slackWebhookUrl`, `crmWebhookUrl`, `teamEmail`, `onOpenIntegrations`, plus push handlers/status per service (Apollo, Slack, CRM).
 
 | Condition | Behavior |
 |---|---|
-| No Apollo API key | **Hard block** — red warning, "Set up Integrations →" opens drawer, `canPush = false` |
-| No Slack webhook | Soft amber notice only — push still allowed |
+| Neither Apollo key nor CRM webhook set | **Hard block** — red "No CRM connected" warning, "Set up Integrations →" opens drawer, `canPush = false` |
+| No Slack webhook | Soft amber notice + "Notify team via email instead" mailto: link (uses `teamEmail`) |
 | Quality score < 6 on any dim | Amber warning + checkbox "Send it anyway" |
 | No CTA URL on LP | Amber warning + checkbox "Continue without CTA URL" |
+| Always available | "Download prospect report (CSV)" button — no integration required |
+
+Push button label and the post-push status grid adapt to only the services actually configured (Apollo is skipped entirely at push time — not just hidden in the UI — if no key was filled in, rather than silently falling back to the server's `APOLLO_API_KEY`).
 
 ---
 
@@ -279,24 +297,38 @@ After parse: `result.landingPageContent.ctaUrl = sender.defaultCtaUrl` always ov
 
 ### LP Design Reference
 
-`sarah-retool.html` in the project root is the design reference (gold/dark LP with all sections). `LpPage.tsx` replicates this structure with indigo/violet palette.
+`sarah-retool.html` in the project root is the design reference (gold/dark LP with all sections). `LpPage.tsx` replicates this structure with indigo/violet palette. **Note:** this file is currently missing from the working tree (deleted, uncommitted, predates the auth/CRM session) — `LpPage.tsx` itself is unaffected since the reference was only ever used for design inspiration, not imported at runtime.
 
 ---
 
 ## App Flow
 
 ### Single Prospect
-1. Enter company → Exa finds decision-makers
+1. Enter company → Exa finds decision-makers (email enriched via Hunter → Exa → Apollo match, in that priority)
 2. Pick person (PeoplePicker)
 3. Pick buying signal (SignalPicker) or skip
 4. Generate → Groq outputs email + full LP
 5. Review + edit (ReviewPanel — mobile has email/LP tab switcher)
-6. Push → Apollo sequence + Slack (blocked without Apollo key)
+6. Push → Apollo sequence and/or CRM webhook (one required) + Slack — blocked only if neither CRM target is configured
 
 ### Bulk Mode
-1. Find companies via ICP / filters / CSV
+1. Find companies via ICP / filters / CSV — discovery result count is user-chosen (10/20/50/100 pills or custom input, max 100); re-running a search excludes companies already added to the queue this session so you get a fresh set
 2. Set role, auto-push toggle, min quality score
-3. Generate all → sequential processing, live progress table
+3. Generate all → **4-worker concurrency pool** (not sequential), live progress table, "Export CSV" once done
+
+---
+
+## Auth & Account Sync
+
+Login is **optional** — the app is fully usable logged out, exactly as before this feature was added.
+
+- `/login` — combined login/signup page, tab toggle, `Continue without an account` escape hatch
+- `lib/auth.ts` — `crypto.scrypt` password hashing (`salt:hash` hex, `timingSafeEqual` verify), opaque session tokens (`crypto.randomBytes(32)`)
+- Sessions live in Redis (`session:<token>` → `userId`, 30-day TTL) behind an httpOnly/sameSite=lax cookie (`st_session`) — **not JWT**, so logout instantly revokes access and no `AUTH_SECRET` env var is needed
+- `useAuth()` hook exposes `{ user, loading, logout }`, wired into the header (desktop nav + mobile dropdown)
+- Logged in: `useSettings(userId)` reads/writes `/api/settings` instead of localStorage, one-time-seeding the account from local settings if the account has none yet
+- Logged in: prospect pushes are tagged with `userId` (in addition to `deviceId`); `/history` fetches `?scopeId=<userId ?? deviceId>` — same generalized Redis sorted-set index (`prospects:index:<scopeId>`) works for both a device or an account
+- Duplicate-prospect detection (`/api/signals`) still uses the **global** unscoped index — it must see everyone's history, not just one device/account
 
 ---
 
@@ -328,6 +360,7 @@ After parse: `result.landingPageContent.ctaUrl = sender.defaultCtaUrl` always ov
 - GitHub: `kapoormaulie/signal-trace` → auto-deploy on push to `main`
 - Live URL: `https://signal-trace.vercel.app`
 - **Always** run `npx tsc --noEmit` before committing — zero errors required
+- New env vars added locally (e.g. `HUNTER_API_KEY`) must also be added in Vercel → Project → Settings → Environment Variables, then redeployed — `.env.local` is never read in production
 
 ---
 
@@ -349,6 +382,7 @@ npx tsc --noEmit     # TypeScript check (no output = clean)
 |---|---|
 | Port conflict | `taskkill /f /im node.exe` then `npm run dev` |
 | "Module not found" | `npm install` |
+| Dev server 500s with `Cannot find module './XXX.js'` after a build | Running `next build` while `npm run dev` is still up corrupts the shared `.next` cache. Fix: `taskkill /f /im node.exe`, `rm -rf .next`, restart `npm run dev` |
 | Dark mode flash on reload | Check inline `<script>` in `layout.tsx` runs before hydration |
 | CTA URL warning missing | Verify `sender.defaultCtaUrl` is `""` not `undefined` |
 | Groq rate limit | Wait 60 s — free tier has RPM limits |
@@ -361,4 +395,4 @@ npx tsc --noEmit     # TypeScript check (no output = clean)
 
 ## Session History
 
-All design/feature decisions from build sessions are in `session-archive.html`. The design reference for LPs is `sarah-retool.html`.
+All design/feature decisions from build sessions are in `session-archive.html` (session 1: design/LP system; session 2: CRM alternatives, CSV export, auth + account sync, bulk concurrency, discovery count/exclude, Hunter.io enrichment). The design reference for LPs is `sarah-retool.html` (currently missing from disk — see LP Design Reference note above).

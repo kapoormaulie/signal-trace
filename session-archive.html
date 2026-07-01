@@ -340,6 +340,7 @@
     <li><a href="#decisions">Key Technical Decisions</a></li>
     <li><a href="#session">Session Conversation Log</a></li>
     <li><a href="#troubleshoot">Troubleshooting</a></li>
+    <li><a href="#session2">Session 2 — July 1, 2026: Auth, CRM Alternatives, Enrichment, Discovery</a></li>
   </ol>
 </div>
 
@@ -425,6 +426,7 @@ npm run lint        # ESLint</pre>
   <div class="env-row"><div class="env-key">APOLLO_API_KEY</div><div class="env-desc">Apollo.io v1 API key — used to push contacts and enrol in sequences. Get from app.apollo.io/settings/integrations/api</div></div>
   <div class="env-row"><div class="env-key">SLACK_WEBHOOK_URL</div><div class="env-desc">Slack Incoming Webhook URL — sends push notification with scores + LP link. Create at api.slack.com/apps</div></div>
   <div class="env-row"><div class="env-key">NEXT_PUBLIC_BASE_URL</div><div class="env-desc">Base URL of the app — used to construct LP links. e.g. http://localhost:3000 for dev, your domain for prod</div></div>
+  <div class="env-row"><div class="env-key">HUNTER_API_KEY</div><div class="env-desc">Optional — Hunter.io email finder/verifier. Free tier: 25 finds + 50 verifications/mo, no card required. Get from hunter.io</div></div>
 
   <pre>EXA_API_KEY=
 GROQ_API_KEY=
@@ -722,8 +724,115 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000</pre>
   </table>
 </div>
 
+<!-- ════════════════════════════════ 12 — SESSION 2 ════════════════════════ -->
+<div class="section" id="session2">
+  <div class="section-header">
+    <div class="section-num">12</div>
+    <h2>Session 2 — July 1, 2026: Auth, CRM Alternatives, Enrichment, Discovery</h2>
+  </div>
+  <p>Second build session. Focus: giving the CRM-push step real alternatives (not just Apollo), letting the app work across devices/accounts, speeding up bulk, and adding an optional email-enrichment provider. Model: <strong>Claude Sonnet 5</strong>.</p>
+
+  <div class="feature-grid">
+    <div class="feature-card">
+      <div class="label">🔗 Alternative CRM (Webhook)</div>
+      <p>Apollo and a generic CRM webhook (HubSpot/Pipedrive/Salesforce/Zapier/Make) are interchangeable push targets — only one is required. Presented as sub-tabs under one Integrations card, not two separate required cards.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">⬇️ CSV / Prospect Reports</div>
+      <p>Download-a-CSV button on the single push panel, bulk results table, and history page — no integration required, always available.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">✉️ Team Email Fallback</div>
+      <p>If Slack isn't connected, a "Notify team via email instead" link opens a pre-filled mailto: — no backend send, no new API key.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🔐 Optional Auth</div>
+      <p>Self-built email/password login (scrypt hashing, Redis-backed session cookies, no new services). App still fully works logged-out.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">☁️ Account Sync</div>
+      <p>Logged in: Settings + History follow the account instead of localStorage/device. Logged out: unchanged, per-browser as before.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">⚡ Faster Bulk</div>
+      <p>Bulk generation runs a 4-worker concurrency pool instead of one company at a time — several times faster wall-clock for larger batches.</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🔢 Adjustable Discovery Count</div>
+      <p>"How many companies?" — pills for 10/20/50/100 plus a manual custom number input, clamped 1–100 (was a fixed 20).</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">🆕 Fresh Set on Re-search</div>
+      <p>Discovery remembers companies already added to the queue this session and excludes them from the next search (server over-fetches from Exa to compensate).</p>
+    </div>
+    <div class="feature-card">
+      <div class="label">📧 Hunter.io Enrichment</div>
+      <p>Optional email finder/verifier, wins priority over Exa/Apollo email resolution when it returns a confidence-scored match. No-ops if HUNTER_API_KEY isn't set.</p>
+    </div>
+  </div>
+
+  <h3>New files</h3>
+  <div class="tree">
+<span class="file">lib/crm.ts</span> <span class="comment">— generic CRM webhook POST client</span>
+<span class="file">lib/csv.ts</span> <span class="comment">— CSV serializer + browser download trigger</span>
+<span class="file">lib/deviceId.ts</span> <span class="comment">— localStorage UUID for logged-out history scoping</span>
+<span class="file">lib/auth.ts</span> <span class="comment">— scrypt password hashing, session cookie helpers</span>
+<span class="file">lib/hunter.ts</span> <span class="comment">— Hunter.io email finder/verifier client</span>
+<span class="dir">app/api/push/crm/route.ts</span>
+<span class="dir">app/api/auth/</span><span class="file">{signup,login,logout,me}/route.ts</span>
+<span class="dir">app/api/settings/route.ts</span> <span class="comment">— GET/POST account-scoped settings</span>
+<span class="dir">app/login/page.tsx</span> <span class="comment">— combined login/signup, tab toggle</span>
+<span class="file">hooks/useAuth.ts</span> <span class="comment">— { user, loading, logout }</span>
+  </div>
+
+  <h3>Changelog</h3>
+  <div class="chat" style="margin:0;">
+    <div class="change"><span class="change-tag tag-new">new</span><div class="change-body"><strong>Other CRM (Webhook) as Apollo alternative</strong><p>PushButton.tsx: hard-block only fires when neither Apollo nor a CRM webhook is configured. SettingsBar.tsx: merged into one card with an "Apollo API key" / "Want to connect a different CRM?" sub-tab toggle.</p></div></div>
+    <div class="change"><span class="change-tag tag-new">new</span><div class="change-body"><strong>CSV export everywhere</strong><p>PushButton (single), BulkSection results table, and /history page all gained a CSV/report download using the same lib/csv.ts helper.</p></div></div>
+    <div class="change"><span class="change-tag tag-new">new</span><div class="change-body"><strong>Per-device, then per-account, history</strong><p>First pass: localStorage deviceId + a per-device Redis sorted-set index so /history stopped showing every device's prospects globally. Second pass: generalized the same index to accept a userId scopeId once logged in, so history follows the account.</p></div></div>
+    <div class="change"><span class="change-tag tag-new">new</span><div class="change-body"><strong>Login / signup</strong><p>Redis-backed opaque session tokens (httpOnly cookie, 30-day TTL, instantly revocable on logout) — no JWT, no new env var. Passwords hashed with Node's built-in crypto.scrypt, no new dependency.</p></div></div>
+    <div class="change"><span class="change-tag tag-update">update</span><div class="change-body"><strong>useSettings(userId) account-aware</strong><p>Logged out: localStorage exactly as before. Logged in: reads/writes /api/settings; one-time seeds the account from local settings if the account has none yet.</p></div></div>
+    <div class="change"><span class="change-tag tag-update">update</span><div class="change-body"><strong>Bulk concurrency</strong><p>handleRun's sequential for-loop replaced with a 4-worker pool (Promise.all over worker functions pulling from a shared cursor) — bounded specifically to avoid Groq's free-tier RPM limit.</p></div></div>
+    <div class="change"><span class="change-tag tag-update">update</span><div class="change-body"><strong>Discovery: count + exclude</strong><p>/api/discover accepts count (clamped 1–100) and exclude (company names already added). Server over-fetches from Exa by exclude.size so the post-filter result still hits the requested count.</p></div></div>
+    <div class="change"><span class="change-tag tag-new">new</span><div class="change-body"><strong>Hunter.io email enrichment</strong><p>Wired into /api/people, /api/bulk, and /api/push/apollo's no-email fallback. Only trusts Hunter matches with confidence score ≥ 50; silently no-ops without HUNTER_API_KEY.</p></div></div>
+  </div>
+
+  <h3>Key technical decisions</h3>
+  <table>
+    <tr><th>Decision</th><th>Why</th></tr>
+    <tr><td>Sessions in Redis, not JWT</td><td>No new AUTH_SECRET env var, and logout actually revokes access immediately instead of waiting out a token's expiry.</td></tr>
+    <tr><td>scrypt (Node built-in) over bcryptjs</td><td>Zero new npm dependency — crypto.scrypt + crypto.timingSafeEqual is already in the Node runtime Next.js API routes run on.</td></tr>
+    <tr><td>Auth is opt-in, not required</td><td>Explicit user decision — SignalTrace stays a fully working local tool if you never log in.</td></tr>
+    <tr><td>Generic CRM webhook instead of native HubSpot/Pipedrive clients</td><td>One relay works with Zapier/Make/any inbound webhook — broader coverage than building N per-CRM API clients, for far less code.</td></tr>
+    <tr><td>Only Hunter.io wired in, not BuiltWith/Proxycurl/PeopleDataLabs</td><td>Explicit user correction — those three don't have a genuine ongoing free tier; user chose to add all four anyway then narrowed to Hunter.io only.</td></tr>
+    <tr><td>Bulk concurrency fixed at 4, not user-configurable</td><td>Balances speed against Groq's free-tier RPM limit without adding a new settings control for a "one more knob" that wasn't asked for.</td></tr>
+  </table>
+
+  <h3>Session conversation log (condensed)</h3>
+  <div class="chat">
+    <div class="msg user">for connecting with crm steps add option to connect with other crm available widely in market or just download an excel sheet of results or download prospect report give various options, or if not slack give option to update team through mail</div>
+    <div class="msg assistant">Added a generic CRM webhook relay (Zapier/Make/HubSpot/Pipedrive), CSV export on push/bulk/history, and a mailto "notify team" fallback when Slack isn't connected. Clarified format/scope via AskUserQuestion first.</div>
+    <div class="msg user">make other crm webhook option just under apollo as subtab if a user do not want to push to apollo, he can fill in other webhooks as an alternative, but it is required to fill a one of them</div>
+    <div class="msg assistant">Restructured Integrations: Apollo + CRM webhook merged into one card with a sub-tab toggle. canPush now requires only one of the two, not Apollo specifically.</div>
+    <div class="msg user">Not on Apollo? Point this at a Zapier/Make webhook... [asked to collapse the "what this does" bullets]</div>
+    <div class="msg assistant">Wrapped the CRM webhook's info bullets in the same collapsible accordion pattern already used for Apollo/Slack.</div>
+    <div class="msg user">Make history availbale only for hat specific device on which it opens currently it is visible on all devces</div>
+    <div class="msg assistant">Added lib/deviceId.ts (localStorage UUID) + a per-scope Redis sorted-set index; /api/history now requires a scopeId and returns empty without one instead of leaking every device's data.</div>
+    <div class="msg user">i want to add login signup page too</div>
+    <div class="msg assistant">Clarified approach via AskUserQuestion (self-built email/password, optional login, account-synced settings+history), then built the full auth stack — signup/login/logout/me routes, /login page, useAuth hook, account-scoped settings API, and generalized the history scopeId to accept a userId.</div>
+    <div class="msg user">make bulk process a bit fast and also find matching comapnies show atleast upto 100 ask user how mch they want</div>
+    <div class="msg assistant">Bulk: 4-worker concurrency pool. Discovery: numResults now user-controlled (pills + custom input) up to 100, was hardcoded 20.</div>
+    <div class="msg user">type a manual number too add and also some other enrichments you think search from all best possible apps like clay and others and add featires here</div>
+    <div class="msg assistant">Added the custom-number input. For enrichment, corrected an overstatement about free tiers (only Hunter.io is genuinely free on an ongoing basis) before building — user confirmed all four then narrowed to Hunter.io only.</div>
+    <div class="msg user">ONLY ADD HUNTER.IO NOTHING ELSE</div>
+    <div class="msg assistant">Built lib/hunter.ts and wired it into /api/people, /api/bulk, and /api/push/apollo's email-resolution fallbacks, prioritized above Exa/Apollo when it returns a confidence-scored match.</div>
+    <div class="msg user">WHEN YOU RE-RUN FIND ANOTHER SET OF COMPANIES NOT SAME AFTER IT IS BEING ADDED IN LIST</div>
+    <div class="msg assistant">CompanyDiscovery now tracks added company names and sends them as exclude on the next search; /api/discover over-fetches from Exa and filters them out server-side. Verified live: zero overlap across two consecutive searches.</div>
+  </div>
+</div>
+
 <div class="footer">
-  Built with <strong>Claude Sonnet 4.6</strong> · SignalTrace v0.1.0 · June 2026
+  Built with <strong>Claude Sonnet 4.6</strong> (session 1) and <strong>Claude Sonnet 5</strong> (session 2) · SignalTrace v0.2.0 · June–July 2026
   <br/><br/>
   Project path: <code>C:\Users\LENOVO\Downloads\SignalTrace</code>
 </div>
