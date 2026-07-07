@@ -38,11 +38,13 @@ ANTHROPIC_API_KEY=your_anthropic_api_key         # optional — used for logo vi
 ```
 
 ### Email Enrichment Priority (descending):
-1. **FullEnrich** (95% confidence) — Most accurate, verified data
-2. **AI Ark** (92% confidence) — High-confidence enrichment, multiple data points
-3. **Hunter.io** (85% confidence) — Purpose-built email finder
-4. **Apollo.io** (80% confidence) — Verified employee database match
-5. **Exa web search** (65% confidence) — Unverified web search extraction
+1. **FullEnrich cached** (95% confidence) — Results from async webhook enrichment, cached in Redis
+2. **Hunter.io** (85% confidence) — Synchronous email finder/verifier
+3. **Apollo.io** (80% confidence) — Verified employee database match
+4. **Exa web search** (65% confidence) — Unverified web search extraction
+5. **FullEnrich async** — People without emails queued for background enrichment; results arrive via webhook
+
+**FullEnrich Flow**: When `/api/people` finds people without emails, they're automatically queued for FullEnrich bulk enrichment. Results arrive asynchronously via webhook at `/api/webhooks/fullenrich`, cached in Redis, and returned on subsequent searches.
 
 ---
 
@@ -57,11 +59,11 @@ ANTHROPIC_API_KEY=your_anthropic_api_key         # optional — used for logo vi
 | Signal search | Exa (web search API) |
 | CRM push | Apollo.io v1 REST API |
 | Notifications | Slack Incoming Webhook |
-| Storage | Upstash Redis (history + landing pages + users/sessions/account settings) |
+| Storage | Upstash Redis (history + landing pages + users/sessions/account settings + enrichment cache) |
 | Duplicate detection | Fuse.js fuzzy match |
 | State | React `useState` + localStorage (settings, logged-out) or account (logged-in) |
 | Auth | Self-built email/password — Node `crypto.scrypt` hashing, Redis-backed session cookies (no new deps/services) |
-| Email enrichment | Hunter.io (optional — no-ops without `HUNTER_API_KEY`) |
+| Email enrichment | FullEnrich (95%, async webhook) + Hunter.io (85%, sync) + Apollo (80%) + Exa (65%) |
 
 ---
 
@@ -95,6 +97,8 @@ SignalTrace/
 │       │   ├── apollo/         # Apollo CRM push (+ Hunter email fallback)
 │       │   ├── crm/            # Generic CRM webhook relay (Zapier/Make/HubSpot/etc.)
 │       │   └── slack/          # Slack webhook push
+│       ├── webhooks/
+│       │   └── fullenrich/     # FullEnrich async enrichment results receiver
 │       └── bulk/               # Bulk generation orchestrator — 4-worker concurrency
 │
 ├── components/
@@ -120,15 +124,17 @@ SignalTrace/
 │
 ├── lib/
 │   ├── claude.ts               # Groq generation — email + full rich LP in one call
-│   ├── exa.ts                  # Exa search
-│   ├── apollo.ts               # Apollo CRM
+│   ├── exa.ts                  # Exa search + people/person signals (7 parallel strategies)
+│   ├── apollo.ts               # Apollo CRM + people search integration
 │   ├── slack.ts                # Slack webhook
 │   ├── crm.ts                  # Generic CRM webhook POST client
-│   ├── hunter.ts               # Hunter.io email finder/verifier (optional)
+│   ├── hunter.ts               # Hunter.io email finder/verifier (optional, sync)
+│   ├── fullenrich.ts           # FullEnrich bulk enrichment (async webhook)
+│   ├── logo.ts                 # Logo scraping + rebrand detection + design trend analysis
 │   ├── auth.ts                 # scrypt password hashing + session cookie helpers
 │   ├── csv.ts                  # CSV serializer + browser download trigger
 │   ├── deviceId.ts             # localStorage UUID for logged-out history scoping
-│   ├── redis.ts                # Upstash Redis — prospects, LPs, users/sessions/settings
+│   ├── redis.ts                # Upstash Redis — prospects, LPs, users/sessions/settings, enrichment cache
 │   ├── slugify.ts              # LP slug
 │   ├── fuzzy.ts                # Fuse.js duplicate detection
 │   └── logger.ts               # Logging
@@ -342,6 +348,58 @@ Login is **optional** — the app is fully usable logged out, exactly as before 
 
 ---
 
+## FullEnrich Webhook Integration
+
+### How it works
+
+1. **Search triggers enrichment**: When `/api/people` finds 15-20 people but some lack emails, they're automatically queued for FullEnrich bulk enrichment
+2. **Async enrichment**: `requestFullEnrichBulk()` submits them to `https://app.fullenrich.com/api/v2/contact/enrich/bulk` with webhook URL
+3. **Webhook callback**: FullEnrich processes asynchronously and POSTs results to `/api/webhooks/fullenrich`
+4. **Caching**: Results cached in Redis keyed by person ID (`fullenrich:person:{id}`)
+5. **Subsequent searches**: Cached emails returned immediately with 95% confidence score
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `https://app.fullenrich.com/api/v2/contact/enrich/bulk` | POST | Submit batch enrichment (webhook callback URL required) |
+| `https://signal-trace.vercel.app/api/webhooks/fullenrich` | POST | Receive enrichment results from FullEnrich |
+| `/api/people?company=X` | GET | Triggers auto-enrichment for unfound emails |
+
+### Request Format
+
+FullEnrich expects:
+```json
+{
+  "name": "SignalTrace-{timestamp}",
+  "webhook_url": "https://signal-trace.vercel.app/api/webhooks/fullenrich",
+  "data": [{
+    "id": "person-id",
+    "first_name": "John",
+    "last_name": "Doe",
+    "company_name": "Google"
+  }]
+}
+```
+
+### Response Fields Cached
+
+- `email` — Work email address (95% confidence when verified)
+- `source` — Always "fullenrich"
+- `confidence` — Always 95
+- `verified` — Always true
+- `enrichedAt` — Timestamp of enrichment
+
+### Environment Setup
+
+Add to `.env.local` and Vercel → Project Settings → Environment Variables:
+```env
+FULLENRICH_API_KEY=your_api_key_uuid
+NEXT_PUBLIC_BASE_URL=http://localhost:3000  # Or https://signal-trace.vercel.app in prod
+```
+
+---
+
 ## Hero Banner Copy (HeroBanner.tsx)
 
 - Status pill: **"Signal Intelligence · Groq LLaMA 3.3 · Exa"**
@@ -400,9 +458,17 @@ npx tsc --noEmit     # TypeScript check (no output = clean)
 | Redis errors | Check `UPSTASH_REDIS_REST_URL` + token |
 | LP page shows only hero | Old LP in Redis — optional sections only appear on newly generated LPs |
 | TypeScript error | `npx tsc --noEmit` — never commit dirty |
+| FullEnrich emails not appearing | Webhook not yet received. Results are async; check Redis cache after 2–5 min: `redis-cli GET fullenrich:person:{id}` |
+| FullEnrich webhook 400 error | Check that `NEXT_PUBLIC_BASE_URL` is correct (must be publicly accessible, not localhost) |
+| People search returns `emailConfidence: 0` | No emails found from any source; people queued for FullEnrich enrichment, check back after enrichment completes |
 
 ---
 
 ## Session History
 
-All design/feature decisions from build sessions are in `session-archive.html` (session 1: design/LP system; session 2: CRM alternatives, CSV export, auth + account sync, bulk concurrency, discovery count/exclude, Hunter.io enrichment). The design reference for LPs is `sarah-retool.html` (currently missing from disk — see LP Design Reference note above).
+All design/feature decisions from build sessions are in `session-archive.html`:
+- **Session 1**: Design/LP system
+- **Session 2**: CRM alternatives, CSV export, auth + account sync, bulk concurrency, discovery count/exclude, Hunter.io enrichment
+- **Session 3**: FullEnrich webhook integration (async bulk enrichment with Redis caching), auto-queueing unfound contacts for enrichment
+
+The design reference for LPs is `sarah-retool.html` (currently missing from disk — see LP Design Reference note above).
