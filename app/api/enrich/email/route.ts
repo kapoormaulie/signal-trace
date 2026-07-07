@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     // Multi-source email enrichment pipeline
     const emailSources: Array<{
       email: string;
-      source: "fullenrich" | "hunter" | "apollo" | "web";
+      source: "fullenrich" | "aiark" | "hunter" | "apollo" | "web";
       confidence: number;
       verified: boolean;
     }> = [];
@@ -71,7 +71,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Hunter.io API
+    // 2. AI Ark API
+    if (process.env.AIARK_API_KEY && emailSources.length === 0) {
+      try {
+        const response = await fetch("https://api.aiark.com/v1/person", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-Key": process.env.AIARK_API_KEY,
+          },
+          body: JSON.stringify({
+            first_name: firstName,
+            last_name: lastName,
+            company: company,
+            linkedin_profile_url: linkedinUrl,
+          }),
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as {
+            email?: string;
+            emails?: Array<{ email: string; confidence?: number }>;
+          };
+
+          if (data.email) {
+            emailSources.push({
+              email: data.email,
+              source: "aiark",
+              confidence: 92,
+              verified: true,
+            });
+          } else if (data.emails && data.emails.length > 0) {
+            const best = data.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+            if (best) {
+              emailSources.push({
+                email: best.email,
+                source: "aiark",
+                confidence: Math.round((best.confidence || 0.9) * 100),
+                verified: true,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        log(`AI Ark error: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // 4. Hunter.io API
     if (process.env.HUNTER_API_KEY && emailSources.length === 0) {
       try {
         const domain = company.toLowerCase().replace(/\s+/g, "").concat(".com");
@@ -98,7 +145,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Apollo.io verification (if email already found)
+    // 5. Apollo.io verification (if email already found)
     if (process.env.APOLLO_API_KEY && emailSources.length > 0) {
       try {
         const response = await fetch("https://api.apollo.io/v1/contacts/search", {

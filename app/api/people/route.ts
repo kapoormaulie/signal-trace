@@ -6,7 +6,7 @@ import { log } from "@/lib/logger";
 
 interface EmailResult {
   email: string;
-  source: "fullenrich" | "hunter" | "apollo" | "exa" | "unknown";
+  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "unknown";
   confidence: number;
   verified: boolean;
 }
@@ -85,7 +85,56 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 2: Hunter.io
+        // PRIORITY 2: AI Ark
+        if (!emailResult && process.env.AIARK_API_KEY) {
+          try {
+            const response = await fetch("https://api.aiark.com/v1/person", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-API-Key": process.env.AIARK_API_KEY,
+              },
+              body: JSON.stringify({
+                first_name: firstName,
+                last_name: lastName,
+                company: company,
+                linkedin_profile_url: person.linkedinUrl,
+              }),
+            });
+
+            if (response.ok) {
+              const data = (await response.json()) as {
+                email?: string;
+                emails?: Array<{ email: string; confidence?: number }>;
+              };
+
+              if (data.email) {
+                emailResult = {
+                  email: data.email,
+                  source: "aiark",
+                  confidence: 92,
+                  verified: true,
+                };
+                emailSources.push(emailResult);
+              } else if (data.emails && data.emails.length > 0) {
+                const best = data.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+                if (best) {
+                  emailResult = {
+                    email: best.email,
+                    source: "aiark",
+                    confidence: Math.round((best.confidence || 0.9) * 100),
+                    verified: true,
+                  };
+                  emailSources.push(emailResult);
+                }
+              }
+            }
+          } catch (err) {
+            // Continue to next source
+          }
+        }
+
+        // PRIORITY 3: Hunter.io
         if (!emailResult) {
           const hunterEmail = await findEmailViaHunter(firstName, lastName, company).catch(() => null);
           if (hunterEmail) {
@@ -99,7 +148,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 3: Exa web search
+        // PRIORITY 4: Exa web search
         if (!emailResult) {
           const exaEmail = await findPersonEmail(firstName, lastName, company, person.linkedinUrl).catch(() => null);
           if (exaEmail) {
@@ -113,7 +162,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 4: Apollo match
+        // PRIORITY 5: Apollo match
         if (!emailResult) {
           const apolloMatch = await matchPersonInApollo(firstName, lastName, company, person.linkedinUrl).catch(() => null);
           if (apolloMatch?.email) {

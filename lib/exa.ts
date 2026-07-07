@@ -424,17 +424,64 @@ async function enrichEmailWithFullEnrich(
   }
 }
 
+// AI Ark API integration for email enrichment
+async function enrichEmailWithAiArk(
+  firstName: string,
+  lastName: string,
+  company: string,
+  linkedinUrl?: string
+): Promise<string | null> {
+  if (!process.env.AIARK_API_KEY) return null;
+
+  try {
+    const response = await fetch("https://api.aiark.com/v1/person", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": process.env.AIARK_API_KEY,
+      },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        company: company,
+        linkedin_profile_url: linkedinUrl,
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      email?: string;
+      emails?: Array<{ email: string; confidence?: number }>;
+    };
+
+    // Return best email
+    if (data.email) return data.email;
+    if (data.emails && data.emails.length > 0) {
+      const best = data.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+      return best?.email || null;
+    }
+
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function findPersonEmail(
   firstName: string,
   lastName: string,
   company: string,
   linkedinUrl?: string
 ): Promise<string | null> {
-  // STRATEGY 1: Try FullEnrich first (most accurate)
-  const fullEnrichEmail = await enrichEmailWithFullEnrich(firstName, lastName, company, linkedinUrl);
-  if (fullEnrichEmail) {
-    return fullEnrichEmail;
-  }
+  // STRATEGY 1: Try multiple high-confidence sources in parallel first
+  const [fullEnrichEmail, aiArkEmail] = await Promise.all([
+    enrichEmailWithFullEnrich(firstName, lastName, company, linkedinUrl),
+    enrichEmailWithAiArk(firstName, lastName, company, linkedinUrl),
+  ]);
+
+  if (fullEnrichEmail) return fullEnrichEmail;
+  if (aiArkEmail) return aiArkEmail;
 
   // STRATEGY 2: Web search for email (Exa + manual extraction)
   const queries = [
