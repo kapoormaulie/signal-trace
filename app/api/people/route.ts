@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
               }),
             });
 
+            log(`people-lookup | FullEnrich response status: ${response.status}`);
+
             if (response.ok) {
               const data = (await response.json()) as {
                 data?: {
@@ -126,7 +128,12 @@ export async function POST(req: NextRequest) {
                   };
                   emailSources.push(emailResult);
                 }
+              } else {
+                log(`people-lookup | FullEnrich returned 200 but no email found`);
               }
+            } else {
+              const errorText = await response.text().catch(() => "");
+              log(`people-lookup | FullEnrich error ${response.status}: ${errorText.slice(0, 200)}`);
             }
           } catch (err) {
             log(`people-lookup | FullEnrich error: ${err instanceof Error ? err.message : String(err)}`);
@@ -155,6 +162,8 @@ export async function POST(req: NextRequest) {
               }),
             });
 
+            log(`people-lookup | AI Ark response status: ${response.status}`);
+
             if (response.ok) {
               const data = (await response.json()) as {
                 email?: string;
@@ -180,7 +189,12 @@ export async function POST(req: NextRequest) {
                   };
                   emailSources.push(emailResult);
                 }
+              } else {
+                log(`people-lookup | AI Ark returned 200 but no email found`);
               }
+            } else {
+              const errorText = await response.text().catch(() => "");
+              log(`people-lookup | AI Ark error ${response.status}: ${errorText.slice(0, 200)}`);
             }
           } catch (err) {
             log(`people-lookup | AI Ark error: ${err instanceof Error ? err.message : String(err)}`);
