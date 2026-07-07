@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
 import { findEmailViaHunter } from "@/lib/hunter";
+import { enrichEmailWithClay } from "@/lib/clay";
 import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
 import { log } from "@/lib/logger";
 
 interface EmailResult {
   email: string;
-  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "unknown";
+  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "clay" | "unknown";
   confidence: number;
   verified: boolean;
 }
@@ -100,7 +101,27 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 1: FullEnrich (most accurate if available)
+        // PRIORITY 1: Clay (synchronous, 85-90% confidence)
+        if (!emailResult && process.env.CLAY_API_KEY) {
+          log(`people-lookup | trying Clay for ${person.name}...`);
+          try {
+            const clayResult = await enrichEmailWithClay(firstName, lastName, company);
+            if (clayResult) {
+              emailResult = {
+                email: clayResult.email,
+                source: "clay",
+                confidence: clayResult.confidence,
+                verified: true,
+              };
+              emailSources.push(emailResult);
+              log(`people-lookup | ✓ Clay found: ${clayResult.email}`);
+            }
+          } catch (err) {
+            log(`people-lookup | Clay error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+
+        // PRIORITY 2: FullEnrich (most accurate if available)
         if (process.env.FULLENRICH_API_KEY) {
           log(`people-lookup | trying FullEnrich for ${person.name}...`);
           try {
@@ -169,7 +190,7 @@ export async function POST(req: NextRequest) {
           log(`people-lookup | ✓ FullEnrich found: ${emailResult.email}`);
         }
 
-        // PRIORITY 2: AI Ark
+        // PRIORITY 3: AI Ark
         if (!emailResult && process.env.AIARK_API_KEY) {
           log(`people-lookup | trying AI Ark for ${person.name}...`);
           try {
@@ -230,7 +251,7 @@ export async function POST(req: NextRequest) {
           log(`people-lookup | ✓ AI Ark found: ${emailResult.email}`);
         }
 
-        // PRIORITY 3: Hunter.io
+        // PRIORITY 4: Hunter.io
         if (!emailResult) {
           log(`people-lookup | trying Hunter for ${person.name}...`);
           const hunterEmail = await findEmailViaHunter(firstName, lastName, company).catch((err) => {
@@ -251,7 +272,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 4: Exa web search
+        // PRIORITY 5: Exa web search
         if (!emailResult) {
           log(`people-lookup | trying Exa for ${person.name}...`);
           const exaEmail = await findPersonEmail(firstName, lastName, company, person.linkedinUrl).catch((err) => {
@@ -272,7 +293,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 5: Apollo match
+        // PRIORITY 6: Apollo match
         if (!emailResult) {
           log(`people-lookup | trying Apollo for ${person.name}...`);
           const apolloMatch = await matchPersonInApollo(firstName, lastName, company, person.linkedinUrl).catch((err) => {
