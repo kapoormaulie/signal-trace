@@ -25,44 +25,50 @@ export async function POST(req: NextRequest) {
     // 1. FullEnrich (highest confidence if available)
     if (process.env.FULLENRICH_API_KEY) {
       try {
-        const response = await fetch("https://api.fullenrich.com/v1/person/search", {
+        const response = await fetch("https://app.fullenrich.com/api/v2/people/search", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${process.env.FULLENRICH_API_KEY}`,
           },
           body: JSON.stringify({
-            first_name: firstName,
-            last_name: lastName,
-            company_name: company,
-            linkedin_url: linkedinUrl,
+            people: [{
+              first_name: firstName,
+              last_name: lastName,
+            }],
+            company_filters: {
+              names: [company],
+            },
           }),
         });
 
         if (response.ok) {
           const data = (await response.json()) as {
-            data?: {
+            people?: Array<{
               email?: string;
-              emails?: Array<{ email: string; confidence: number }>;
-            };
+              emails?: Array<{ email: string; confidence?: number }>;
+            }>;
           };
 
-          if (data.data?.email) {
-            emailSources.push({
-              email: data.data.email,
-              source: "fullenrich",
-              confidence: 95,
-              verified: true,
-            });
-          } else if (data.data?.emails && data.data.emails.length > 0) {
-            const best = data.data.emails.sort((a, b) => b.confidence - a.confidence)[0];
-            if (best) {
+          if (data.people && data.people.length > 0) {
+            const match = data.people[0];
+            if (match?.email) {
               emailSources.push({
-                email: best.email,
+                email: match.email,
                 source: "fullenrich",
-                confidence: Math.round(best.confidence * 100),
+                confidence: 95,
                 verified: true,
               });
+            } else if (match?.emails && match.emails.length > 0) {
+              const best = match.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+              if (best) {
+                emailSources.push({
+                  email: best.email,
+                  source: "fullenrich",
+                  confidence: Math.round((best.confidence || 0.95) * 100),
+                  verified: true,
+                });
+              }
             }
           }
         }

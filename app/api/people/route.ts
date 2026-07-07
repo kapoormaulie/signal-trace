@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
 import { findEmailViaHunter } from "@/lib/hunter";
+import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
 import { log } from "@/lib/logger";
 
 interface EmailResult {
@@ -81,21 +82,39 @@ export async function POST(req: NextRequest) {
 
         log(`people-lookup | enriching ${person.name}: FullEnrich=${!!process.env.FULLENRICH_API_KEY} AiArk=${!!process.env.AIARK_API_KEY} Hunter=${!!process.env.HUNTER_API_KEY} Apollo=${!!process.env.APOLLO_API_KEY}`);
 
+        // PRIORITY 0: Check FullEnrich cached results (from webhook)
+        if (process.env.FULLENRICH_API_KEY) {
+          const cached = await checkEnrichedEmail(person.id || "");
+          if (cached) {
+            emailResult = {
+              email: cached.email,
+              source: "fullenrich",
+              confidence: cached.confidence,
+              verified: cached.verified,
+            };
+            emailSources.push(emailResult);
+            log(`people-lookup | ✓ FullEnrich cached: ${cached.email}`);
+          }
+        }
+
         // PRIORITY 1: FullEnrich (most accurate if available)
         if (process.env.FULLENRICH_API_KEY) {
           log(`people-lookup | trying FullEnrich for ${person.name}...`);
           try {
-            const response = await fetch("https://api.fullenrich.com/v1/person/search", {
+            const response = await fetch("https://app.fullenrich.com/api/v2/people/search", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${process.env.FULLENRICH_API_KEY}`,
               },
               body: JSON.stringify({
-                first_name: firstName,
-                last_name: lastName,
-                company_name: company,
-                linkedin_url: person.linkedinUrl,
+                people: [{
+                  first_name: firstName,
+                  last_name: lastName,
+                }],
+                company_filters: {
+                  names: [company],
+                },
               }),
             });
 
@@ -103,33 +122,36 @@ export async function POST(req: NextRequest) {
 
             if (response.ok) {
               const data = (await response.json()) as {
-                data?: {
+                people?: Array<{
                   email?: string;
-                  emails?: Array<{ email: string; confidence: number }>;
-                };
+                  emails?: Array<{ email: string; confidence?: number }>;
+                }>;
               };
 
-              if (data.data?.email) {
-                emailResult = {
-                  email: data.data.email,
-                  source: "fullenrich",
-                  confidence: 95,
-                  verified: true,
-                };
-                emailSources.push(emailResult);
-              } else if (data.data?.emails && data.data.emails.length > 0) {
-                const best = data.data.emails.sort((a, b) => b.confidence - a.confidence)[0];
-                if (best) {
+              if (data.people && data.people.length > 0) {
+                const match = data.people[0];
+                if (match?.email) {
                   emailResult = {
-                    email: best.email,
+                    email: match.email,
                     source: "fullenrich",
-                    confidence: Math.round(best.confidence * 100),
+                    confidence: 95,
                     verified: true,
                   };
                   emailSources.push(emailResult);
+                } else if (match?.emails && match.emails.length > 0) {
+                  const best = match.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
+                  if (best) {
+                    emailResult = {
+                      email: best.email,
+                      source: "fullenrich",
+                      confidence: Math.round((best.confidence || 0.95) * 100),
+                      verified: true,
+                    };
+                    emailSources.push(emailResult);
+                  }
                 }
               } else {
-                log(`people-lookup | FullEnrich returned 200 but no email found`);
+                log(`people-lookup | FullEnrich returned 200 but no people found`);
               }
             } else {
               const errorText = await response.text().catch(() => "");
