@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
 import { findEmailViaHunter } from "@/lib/hunter";
-import { enrichEmailWithClay } from "@/lib/clay";
 import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
 import { log } from "@/lib/logger";
 
 interface EmailResult {
   email: string;
-  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "clay" | "unknown";
+  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "unknown";
   confidence: number;
   verified: boolean;
 }
@@ -101,23 +100,24 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 1: Clay (synchronous, 85-90% confidence)
-        if (!emailResult && process.env.CLAY_API_KEY) {
-          log(`people-lookup | trying Clay for ${person.name}...`);
-          try {
-            const clayResult = await enrichEmailWithClay(firstName, lastName, company);
-            if (clayResult) {
-              emailResult = {
-                email: clayResult.email,
-                source: "clay",
-                confidence: clayResult.confidence,
-                verified: true,
-              };
-              emailSources.push(emailResult);
-              log(`people-lookup | ✓ Clay found: ${clayResult.email}`);
-            }
-          } catch (err) {
-            log(`people-lookup | Clay error: ${err instanceof Error ? err.message : String(err)}`);
+        // PRIORITY 1: Hunter.io (synchronous, 85% confidence)
+        if (!emailResult) {
+          log(`people-lookup | trying Hunter for ${person.name}...`);
+          const hunterEmail = await findEmailViaHunter(firstName, lastName, company).catch((err) => {
+            log(`people-lookup | Hunter error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
+          if (hunterEmail) {
+            emailResult = {
+              email: hunterEmail,
+              source: "hunter",
+              confidence: 85,
+              verified: true,
+            };
+            emailSources.push(emailResult);
+            log(`people-lookup | ✓ Hunter found: ${hunterEmail}`);
+          } else {
+            log(`people-lookup | ✗ Hunter no result`);
           }
         }
 
