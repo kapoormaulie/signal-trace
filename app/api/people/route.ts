@@ -72,6 +72,9 @@ export async function POST(req: NextRequest) {
     log(`people-lookup | found ${people.length} people at ${company}`);
 
     // Enrich all people with emails in parallel (Multi-source with confidence scoring)
+    // Collect people needing enrichment for async FullEnrich request
+    const enrichmentQueue: Array<{ id: string; firstName: string; lastName: string }> = [];
+
     const enriched = await Promise.all(
       people.map(async (person) => {
         const [firstName, ...rest] = person.name.trim().split(" ");
@@ -308,7 +311,15 @@ export async function POST(req: NextRequest) {
         if (emailResult) {
           log(`people-lookup | ✓ email found for ${person.name}: ${emailResult.email} (${emailResult.source}, ${emailResult.confidence}% confidence, verified: ${emailResult.verified})`);
         } else {
-          log(`people-lookup | ✗ no valid email for ${person.name}`);
+          log(`people-lookup | ✗ no valid email for ${person.name} — queued for FullEnrich enrichment`);
+          // Queue for async enrichment if FullEnrich is available
+          if (process.env.FULLENRICH_API_KEY) {
+            enrichmentQueue.push({
+              id: person.id || `${person.name}-${company}`,
+              firstName,
+              lastName,
+            });
+          }
         }
 
         return {
@@ -320,6 +331,22 @@ export async function POST(req: NextRequest) {
         };
       })
     );
+
+    // Submit batch enrichment request to FullEnrich in background (don't wait)
+    if (enrichmentQueue.length > 0) {
+      const webhookUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/fullenrich`;
+      requestFullEnrichBulk(
+        enrichmentQueue.map((item) => ({
+          id: item.id,
+          first_name: item.firstName,
+          last_name: item.lastName,
+          company_name: company,
+        })),
+        webhookUrl
+      ).catch((err) => {
+        log(`people-lookup | FullEnrich batch request error: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
 
     return NextResponse.json({ people: enriched });
   } catch (err) {
