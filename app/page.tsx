@@ -68,7 +68,7 @@ interface AppState {
   noSignals: boolean;
   duplicate: DupInfo | null;
   dupDismissed: boolean;
-  selectedSignal: Signal | null;
+  selectedSignals: Signal[];
   generation: GenerationResult | null;
   editedEmailBody: string;
   editedLpContent: LandingPageContent | null;
@@ -85,7 +85,7 @@ interface AppState {
 const INITIAL: AppState = {
   stage: "idle", lookupCompany: "", people: [], prospect: null,
   signals: [], noSignals: false, duplicate: null, dupDismissed: false,
-  selectedSignal: null, generation: null, editedEmailBody: "",
+  selectedSignals: [], generation: null, editedEmailBody: "",
   editedLpContent: null, selectedSubjectIdx: 0, lpUrl: "", lpSlug: "",
   instantlyStatus: "idle", slackStatus: "idle", crmStatus: "idle", error: null, regenerating: false,
 };
@@ -678,13 +678,13 @@ export default function HomePage() {
     }
   }
 
-  async function handleSignalSelect(signal: Signal | null) {
+  async function handleSignalSelect(signals: Signal[]) {
     const prospect = state.prospect;
     if (!prospect) return;
-    update({ stage: "generating", selectedSignal: signal, error: null });
+    update({ stage: "generating", selectedSignals: signals, error: null });
     try {
       const { result } = await apiFetch<{ result: GenerationResult }>("/api/generate", {
-        prospect, signal,
+        prospect, signals,
         senderCompany: settings.senderCompany,
         senderName: settings.senderName,
         defaultCtaUrl: settings.defaultCtaUrl,
@@ -700,12 +700,12 @@ export default function HomePage() {
   }
 
   async function handleRegenerate() {
-    const { prospect, selectedSignal, lpSlug } = state;
+    const { prospect, selectedSignals, lpSlug } = state;
     if (!prospect) return;
     update({ regenerating: true, error: null });
     try {
       const { result } = await apiFetch<{ result: GenerationResult }>("/api/generate", {
-        prospect, signal: selectedSignal,
+        prospect, signals: selectedSignals,
         senderCompany: settings.senderCompany,
         senderName: settings.senderName,
         defaultCtaUrl: settings.defaultCtaUrl,
@@ -721,9 +721,10 @@ export default function HomePage() {
   }
 
   async function handlePush() {
-    const { prospect, generation, editedEmailBody, editedLpContent, selectedSubjectIdx, lpUrl, lpSlug, selectedSignal } = state;
+    const { prospect, generation, editedEmailBody, editedLpContent, selectedSubjectIdx, lpUrl, lpSlug, selectedSignals } = state;
     if (!prospect || !generation) return;
     const subjectLine = generation.subjectLines[selectedSubjectIdx]?.text ?? "";
+    const signalsUsed = selectedSignals.map((s) => s.title).join(", ");
     const hasApolloKey = !!settings.apolloApiKey?.trim();
     const hasCrmWebhook = !!settings.crmWebhookUrl?.trim();
     update({ instantlyStatus: hasApolloKey ? "loading" : "idle", slackStatus: "loading", crmStatus: hasCrmWebhook ? "loading" : "idle" });
@@ -734,13 +735,13 @@ export default function HomePage() {
       hasApolloKey
         ? fetch("/api/push/apollo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospect, emailBody: editedEmailBody, subjectLine, lpUrl, apolloApiKey: settings.apolloApiKey }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false)
         : Promise.resolve(null),
-      fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl, slackWebhookUrl: settings.slackWebhookUrl || undefined }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
+      fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: signalsUsed, scores: generation.scores, lpUrl, slackWebhookUrl: settings.slackWebhookUrl || undefined }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false),
       hasCrmWebhook
-        ? fetch("/api/push/crm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, subjectLine, emailBody: editedEmailBody, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl, webhookUrl: settings.crmWebhookUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false)
+        ? fetch("/api/push/crm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, subjectLine, emailBody: editedEmailBody, signalUsed: signalsUsed, scores: generation.scores, lpUrl, webhookUrl: settings.crmWebhookUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false)
         : Promise.resolve(null),
     ]);
     update({ instantlyStatus: instOk === null ? "idle" : instOk ? "success" : "error", slackStatus: slackOk ? "success" : "error", crmStatus: crmOk === null ? "idle" : crmOk ? "success" : "error" });
-    fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, emailBody: editedEmailBody, subjectLine, lpSlug, lpUrl, scores: generation.scores, signalUsed: selectedSignal?.title, contactedAt: new Date().toISOString(), lpVisits: [], pushed: (instOk !== false) && slackOk && (crmOk !== false), deviceId: getDeviceId(), userId: user?.id }) }).catch(() => {});
+    fetch("/api/history", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, name: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, emailBody: editedEmailBody, subjectLine, lpSlug, lpUrl, scores: generation.scores, signalUsed: signalsUsed, contactedAt: new Date().toISOString(), lpVisits: [], pushed: (instOk !== false) && slackOk && (crmOk !== false), deviceId: getDeviceId(), userId: user?.id }) }).catch(() => {});
   }
 
   async function handleRetryApollo() {
@@ -753,19 +754,21 @@ export default function HomePage() {
   }
 
   async function handleRetrySlack() {
-    const { prospect, generation, selectedSignal, lpUrl } = state;
+    const { prospect, generation, selectedSignals, lpUrl } = state;
     if (!prospect || !generation) return;
     update({ slackStatus: "loading" });
-    const ok = await fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false);
+    const signalsUsed = selectedSignals.map((s) => s.title).join(", ");
+    const ok = await fetch("/api/push/slack", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, signalUsed: signalsUsed, scores: generation.scores, lpUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false);
     update({ slackStatus: ok ? "success" : "error" });
   }
 
   async function handleRetryCrm() {
-    const { prospect, generation, selectedSubjectIdx, selectedSignal, lpUrl } = state;
+    const { prospect, generation, selectedSubjectIdx, selectedSignals, lpUrl } = state;
     if (!prospect || !generation || !settings.crmWebhookUrl?.trim()) return;
     const subjectLine = generation.subjectLines[selectedSubjectIdx]?.text ?? "";
+    const signalsUsed = selectedSignals.map((s) => s.title).join(", ");
     update({ crmStatus: "loading" });
-    const ok = await fetch("/api/push/crm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, subjectLine, emailBody: state.editedEmailBody, signalUsed: selectedSignal?.title ?? "", scores: generation.scores, lpUrl, webhookUrl: settings.crmWebhookUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false);
+    const ok = await fetch("/api/push/crm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prospectName: prospect.name, company: prospect.company, email: prospect.email, linkedinUrl: prospect.linkedinUrl, subjectLine, emailBody: state.editedEmailBody, signalUsed: signalsUsed, scores: generation.scores, lpUrl, webhookUrl: settings.crmWebhookUrl }) }).then((r) => r.json()).then((d) => Boolean(d.success)).catch(() => false);
     update({ crmStatus: ok ? "success" : "error" });
   }
 
@@ -1147,7 +1150,7 @@ export default function HomePage() {
                       email={prospect?.email}
                       subjectLine={generation.subjectLines[selectedSubjectIdx]?.text}
                       emailBody={editedEmailBody}
-                      signalUsed={state.selectedSignal?.title}
+                      signalUsed={state.selectedSignals.map((s) => s.title).join(", ")}
                       lpUrl={lpUrl}
                     />
                   </div>

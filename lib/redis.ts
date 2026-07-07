@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import crypto from "crypto";
-import type { ProspectRecord, LandingPageContent } from "@/types";
+import type { ProspectRecord, LandingPageContent, Signal, PersonResult } from "@/types";
 import type { UserSettings } from "@/hooks/useSettings";
 
 export const redis = new Redis({
@@ -14,6 +14,12 @@ const KEYS = {
   prospectScopeIndex: (scopeId: string) => `prospects:index:${scopeId}`, // per-device OR per-account sorted set — used to scope the /history page
   lp: (slug: string) => `lp:${slug}`,
   lpToProspect: (slug: string) => `lp-to-prospect:${slug}`, // reverse index for visit tracking
+  logoHash: (domain: string) => `logo:${domain}`, // stores logo hash + metadata for rebrand detection
+  // Company database
+  company: (name: string) => `company:${name.toLowerCase()}`,
+  companyPeople: (name: string) => `company:people:${name.toLowerCase()}`,
+  companySignals: (name: string) => `company:signals:${name.toLowerCase()}`,
+  companyMeta: (name: string) => `company:meta:${name.toLowerCase()}`,
   user: (id: string) => `user:${id}`,
   userEmailIndex: (email: string) => `user-email:${email}`,
   session: (token: string) => `session:${token}`,
@@ -81,6 +87,70 @@ export async function saveLp(slug: string, content: LandingPageContent): Promise
 
 export async function getLp(slug: string): Promise<LandingPageContent | null> {
   return redis.get<LandingPageContent>(KEYS.lp(slug));
+}
+
+// ── Logo hashes (for rebrand detection) ────────────────────────────────────
+
+export interface StoredLogoHash {
+  hash: string;
+  url: string;
+  analyzedAt: number;
+}
+
+export async function saveLogoHash(domain: string, data: StoredLogoHash): Promise<void> {
+  await redis.set(KEYS.logoHash(domain), data, { ex: 2592000 }); // 30-day TTL
+}
+
+export async function getLogoHash(domain: string): Promise<StoredLogoHash | null> {
+  return redis.get<StoredLogoHash>(KEYS.logoHash(domain));
+}
+
+// ── Company Database (for caching people, signals, metadata) ────────────────
+
+export interface StoredCompanyMeta {
+  name: string;
+  domain: string;
+  foundedYear?: number;
+  industry?: string;
+  peopleCount: number;
+  signalsCount: number;
+  lastUpdated: number;
+  confidence: number; // 0-100, how accurate is the data
+}
+
+export async function saveCompanyData(company: string, meta: StoredCompanyMeta, people: PersonResult[], signals: Signal[]): Promise<void> {
+  const companyKey = company.toLowerCase();
+  const ttl = 7 * 86400; // 7-day cache
+
+  await Promise.all([
+    redis.set(KEYS.companyMeta(company), meta, { ex: ttl }),
+    redis.set(KEYS.companyPeople(company), people, { ex: ttl }),
+    redis.set(KEYS.companySignals(company), signals, { ex: ttl }),
+  ]);
+}
+
+export async function getCompanyData(company: string): Promise<{ meta: StoredCompanyMeta | null; people: PersonResult[]; signals: Signal[] } | null> {
+  const [meta, people, signals] = await Promise.all([
+    redis.get<StoredCompanyMeta>(KEYS.companyMeta(company)),
+    redis.get<PersonResult[]>(KEYS.companyPeople(company)).catch(() => null),
+    redis.get<Signal[]>(KEYS.companySignals(company)).catch(() => null),
+  ]);
+
+  if (!meta) return null;
+
+  return {
+    meta,
+    people: people ?? [],
+    signals: signals ?? [],
+  };
+}
+
+export async function clearCompanyData(company: string): Promise<void> {
+  await Promise.all([
+    redis.del(KEYS.companyMeta(company)),
+    redis.del(KEYS.companyPeople(company)),
+    redis.del(KEYS.companySignals(company)),
+  ]);
 }
 
 // ── Auth ───────────────────────────────────────────────────────────────────

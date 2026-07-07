@@ -17,10 +17,15 @@ You will output ONLY valid JSON matching the schema the user provides. No markdo
 
 function buildUserPrompt(
   prospect: ProspectInput,
-  signal: Signal | null,
+  signals: Signal[],
   sender: SenderContext
 ): string {
   const firstName = prospect.name.split(" ")[0];
+  const [firstWord, ...rest] = prospect.name.split(" ");
+  const lastName = rest.join(" ");
+
+  // Infer role from prospect name/context
+  const roleHints = prospect.linkedinUrl ? `(LinkedIn: ${prospect.linkedinUrl})` : "";
 
   const senderBlock = sender.senderCompany
     ? `## Sender (you — the person writing this email)
@@ -28,14 +33,32 @@ Company: ${sender.senderCompany}${sender.senderName ? `\nName: ${sender.senderNa
 Sign the email as ${sender.senderName || "the sender"} from ${sender.senderCompany}.`
     : "";
 
-  const signalBlock = signal
-    ? `## Signal (use as the email's opening hook)
-Title: ${signal.title}
-Summary: ${signal.summary}
-URL: ${signal.url}${signal.publishedDate ? `\nPublished: ${signal.publishedDate}` : ""}
-Type: ${signal.type === "company" ? "Company news" : "Person-level signal"}`
-    : `## No live signal found
-Write the email using company context only. Note this in angleReasoning. Score personalization honestly lower.`;
+  // Separate signals by type for smarter handling
+  const personSignals = signals.filter((s) => s.type === "person");
+  const companySignals = signals.filter((s) => s.type === "company");
+  const logoSignals = signals.filter((s) => s.type === "logo");
+
+  const signalBlock = signals.length > 0
+    ? `## Signals (leverage these to create a uniquely personalized email)
+
+${personSignals.length > 0 ? `**Person-Specific Signals** (${firstName}'s individual context — USE THESE HEAVILY):
+${personSignals.map((sig) => `• ${sig.title} — ${sig.summary}`).join("\n")}
+
+` : ""}${logoSignals.length > 0 ? `**Logo/Design Signal** (company positioning):
+${logoSignals.map((sig) => `• ${sig.summary}`).join("\n")}
+
+` : ""}${companySignals.length > 0 ? `**Company Context** (use as supporting backdrop):
+${companySignals.slice(0, 2).map((sig) => `• ${sig.title}`).join("\n")}
+` : ""}
+
+**CRITICAL INSTRUCTIONS FOR PERSONALIZATION:**
+1. **Lead with person-specific signals** — what ${firstName} is personally known for, working on, or announced
+2. **Adapt angle to role** — if ${firstName} is in a leadership role, speak to their team's needs and vision; if technical, speak to architecture/infrastructure
+3. **Connect person → company → solution** — use their recent activity to explain WHY ${sender.senderCompany}'s solution matters to them specifically
+4. **Avoid generic copy** — this email should only work for ${firstName}, not "any VP at ${prospect.company}"
+5. **Reference 1-2 person signals directly** in the email by name/publication/achievement to prove deep research`
+    : `## No live signals found — use company context ONLY
+Write the email using only information about ${prospect.company}. In angleReasoning, note that without person-specific signals, personalization is limited. Score personalization honestly lower.`;
 
   return `Generate a complete cold email package for this prospect.
 
@@ -132,7 +155,7 @@ Be honest on scores. A no-signal email should not score above 6 on personalizati
 
 export async function generateEmail(
   prospect: ProspectInput,
-  signal: Signal | null,
+  signals: Signal[] = [],
   sender: SenderContext = { senderCompany: "", senderName: "", defaultCtaUrl: "" }
 ): Promise<GenerationResult> {
   const startedAt = Date.now();
@@ -144,7 +167,7 @@ export async function generateEmail(
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: buildUserPrompt(prospect, signal, sender) },
+      { role: "user", content: buildUserPrompt(prospect, signals, sender) },
     ],
   });
 
@@ -170,6 +193,13 @@ export async function generateEmail(
   // Always use the sender's defaultCtaUrl — never trust the model to generate one
   result.landingPageContent.ctaUrl = sender.defaultCtaUrl ?? "";
   result.landingPageContent.senderCompany = sender.senderCompany;
+
+  // Set logo and design trend if any signal is a logo
+  const logoSignal = signals.find((s) => s.type === "logo");
+  if (logoSignal?.type === "logo") {
+    result.landingPageContent.logoUrl = logoSignal.logoUrl;
+    result.landingPageContent.designTrend = logoSignal.designTrend;
+  }
 
   return result;
 }

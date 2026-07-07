@@ -110,6 +110,12 @@ export default function LpPage({ content }: Props) {
         <div className="lp-hero-wrap">
           <div className={`lp-hero${isRich ? "" : " lp-hero-single"}`}>
             <div className="lp-hero-copy">
+              {content.logoUrl && (
+                <div className="lp-logo-badge">
+                  <img src={content.logoUrl} alt="Company logo" className="lp-logo-badge-img" />
+                  {content.designTrend && <span className="lp-logo-trend">{content.designTrend}</span>}
+                </div>
+              )}
               <div className="lp-eyebrow">
                 <span className="lp-eyebrow-dot" />
                 Signal detected · {content.senderCompany || "SignalTrace"}
@@ -412,6 +418,21 @@ const LP_CSS = `
 }
 .lp-hero-single { grid-template-columns: 1fr; max-width: 760px; }
 .lp-hero-single .lp-hero-ctas { justify-content: flex-start; }
+.lp-logo-badge {
+  display: flex; align-items: center; gap: 1.2rem;
+  margin-bottom: 2rem; padding: 1rem 1.2rem;
+  border-radius: 16px; background: rgba(99,102,241,0.12);
+  border: 1px solid rgba(99,102,241,0.3);
+  width: fit-content;
+  animation: lp-fade-up 0.6s cubic-bezier(.2,.8,.2,1) both;
+}
+.lp-logo-badge-img {
+  height: 48px; width: 48px; object-fit: contain; border-radius: 10px; flex-shrink: 0;
+}
+.lp-logo-trend {
+  font-size: 0.75rem; font-weight: 700; color: var(--lp-primary-br);
+  letter-spacing: 0.08em; text-transform: capitalize;
+}
 .lp-eyebrow {
   display: inline-flex; align-items: center; gap: 0.6rem;
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;

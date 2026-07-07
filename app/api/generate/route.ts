@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const prospect: ProspectInput = body?.prospect;
-    const signal: Signal | null = body?.signal ?? null;
+    const signals: Signal[] = body?.signals ?? (body?.signal ? [body.signal] : []);
     const senderCompany: string = body?.senderCompany?.trim() ?? "";
     const senderName: string = body?.senderName?.trim() ?? "";
     const defaultCtaUrl: string = body?.defaultCtaUrl?.trim() ?? "";
@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
     }
 
     log(
-      `Claude call start: prospect="${prospect.name}" company="${prospect.company}" signal="${signal?.title ?? "none"}" sender="${senderCompany}"`
+      `Claude call start: prospect="${prospect.name}" company="${prospect.company}" signals="${signals.map((s) => s.title).join(", ") || "none"}" sender="${senderCompany}"`
     );
 
-    const result = await generateEmail(prospect, signal, { senderCompany, senderName, defaultCtaUrl });
+    const result = await generateEmail(prospect, signals, { senderCompany, senderName, defaultCtaUrl });
 
     // Log all three scores and surface a warning if any are below threshold
     const { personalization, clarity, cta } = result.scores;

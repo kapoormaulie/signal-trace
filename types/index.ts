@@ -4,7 +4,10 @@ export interface Signal {
   summary: string;
   url: string;
   publishedDate?: string;
-  type: "company" | "person";
+  type: "company" | "person" | "logo";
+  logoUrl?: string;
+  designTrend?: string;
+  isRebrand?: boolean;
 }
 
 export interface SubjectLine {
@@ -46,6 +49,8 @@ export interface LandingPageContent {
   ctaUrl?: string;
   // Rich content — present on new LPs, undefined on old ones
   senderCompany?: string;
+  logoUrl?: string;
+  designTrend?: string;
   heroStat?: string;
   heroStatLabel?: string;
   heroStatSub?: string;
@@ -96,6 +101,8 @@ export interface PersonResult {
   linkedinUrl: string;
   summary: string;
   email?: string;
+  confidence?: number; // 0-100, accuracy of this person's data
+  source?: "linkedin" | "apollo" | "crunchbase" | "angel" | "news"; // where we found them
 }
 
 export type RunStage =

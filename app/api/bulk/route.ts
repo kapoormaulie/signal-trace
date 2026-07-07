@@ -51,9 +51,9 @@ export async function POST(req: NextRequest) {
       fetchCompanySignals(company).catch(() => []),
       person.linkedinUrl ? fetchPersonSignals(person.linkedinUrl).catch(() => []) : Promise.resolve([]),
     ]);
-    const signals = [...personSignals, ...companySignals];
-    const signal = signals[0] ?? null;
-    log(`bulk | signals: ${signals.length} found, using: ${signal?.title ?? "none"}`);
+    const allSignals = [...personSignals, ...companySignals];
+    const selectedSignals = allSignals.slice(0, 3); // Use up to 3 signals
+    log(`bulk | signals: ${allSignals.length} found, using: ${selectedSignals.map((s) => s.title).join(", ") || "none"}`);
 
     // 3. Generate email
     const prospect = {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       company,
       linkedinUrl: person.linkedinUrl,
     };
-    const result = await generateEmail(prospect, signal, sender);
+    const result = await generateEmail(prospect, selectedSignals, sender);
 
     // 4. Save LP
     const slug = makeSlug(person.name, company);
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       lpSlug: slug,
       lpUrl,
       scores: result.scores,
-      signalUsed: signal?.title,
+      signalUsed: selectedSignals.map((s) => s.title).join(", "),
       contactedAt: new Date().toISOString(),
       lpVisits: [],
       pushed: !!contactId,
