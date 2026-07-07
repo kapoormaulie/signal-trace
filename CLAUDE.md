@@ -31,8 +31,16 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_token
 APOLLO_API_KEY=your_apollo_api_key
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
-HUNTER_API_KEY=your_hunter_api_key   # optional — email finder/verifier, free tier at hunter.io (25 finds + 50 verifications/mo)
+HUNTER_API_KEY=your_hunter_api_key               # optional — email finder/verifier, free tier at hunter.io (25 finds + 50 verifications/mo)
+FULLENRICH_API_KEY=your_fullenrich_api_key       # optional — most accurate email enrichment (priority in enrichment pipeline)
+ANTHROPIC_API_KEY=your_anthropic_api_key         # optional — used for logo vision analysis (currently using file-size heuristics instead)
 ```
+
+### Email Enrichment Priority (descending):
+1. **FullEnrich** (95% confidence when available) — Most accurate, verified data
+2. **Hunter.io** (85% confidence) — Purpose-built email finder
+3. **Exa web search** (65% confidence) — Unverified web search extraction
+4. **Apollo.io** (80% confidence) — Verified employee database match
 
 ---
 

@@ -378,12 +378,65 @@ function extractBestEmail(texts: string[], firstName: string, company: string): 
   return candidates[0] ?? null;
 }
 
+// FullEnrich API integration for accurate email enrichment
+async function enrichEmailWithFullEnrich(
+  firstName: string,
+  lastName: string,
+  company: string,
+  linkedinUrl?: string
+): Promise<string | null> {
+  if (!process.env.FULLENRICH_API_KEY) return null;
+
+  try {
+    const response = await fetch("https://api.fullenrich.com/v1/person/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.FULLENRICH_API_KEY}`,
+      },
+      body: JSON.stringify({
+        first_name: firstName,
+        last_name: lastName,
+        company_name: company,
+        linkedin_url: linkedinUrl,
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      data?: {
+        email?: string;
+        emails?: Array<{ email: string; confidence: number }>;
+      };
+    };
+
+    // Return highest confidence email
+    if (data.data?.email) return data.data.email;
+    if (data.data?.emails && data.data.emails.length > 0) {
+      const best = data.data.emails.sort((a, b) => b.confidence - a.confidence)[0];
+      return best?.email || null;
+    }
+
+    return null;
+  } catch (err) {
+    return null;
+  }
+}
+
 export async function findPersonEmail(
   firstName: string,
   lastName: string,
   company: string,
   linkedinUrl?: string
 ): Promise<string | null> {
+  // STRATEGY 1: Try FullEnrich first (most accurate)
+  const fullEnrichEmail = await enrichEmailWithFullEnrich(firstName, lastName, company, linkedinUrl);
+  if (fullEnrichEmail) {
+    return fullEnrichEmail;
+  }
+
+  // STRATEGY 2: Web search for email (Exa + manual extraction)
   const queries = [
     `"${firstName} ${lastName}" "${company}" email contact`,
     `"${firstName} ${lastName}" ${company} contact info`,
@@ -408,7 +461,7 @@ export async function findPersonEmail(
     }
   }
 
-  // Also search the person's own LinkedIn page text if we have it
+  // STRATEGY 3: LinkedIn page searches via known email domains
   if (linkedinUrl) {
     const liFetch = await exa().searchAndContents(
       `${firstName} ${lastName} ${company} email`,
@@ -417,7 +470,45 @@ export async function findPersonEmail(
     if (liFetch) texts.push(...liFetch.results.map((r) => r.text ?? ""));
   }
 
-  return extractBestEmail(texts, firstName, company);
+  // STRATEGY 4: Hunter.io API (if available)
+  const hunterEmail = await enrichEmailWithHunter(firstName, lastName, company);
+  if (hunterEmail) return hunterEmail;
+
+  // STRATEGY 5: Extract from web search results
+  const webEmail = extractBestEmail(texts, firstName, company);
+  if (webEmail) return webEmail;
+
+  return null;
+}
+
+// Hunter.io API integration
+async function enrichEmailWithHunter(
+  firstName: string,
+  lastName: string,
+  company: string
+): Promise<string | null> {
+  if (!process.env.HUNTER_API_KEY) return null;
+
+  try {
+    const domain = company
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .concat(".com");
+
+    const response = await fetch(
+      `https://api.hunter.io/v2/email-finder?domain=${domain}&first_name=${firstName}&last_name=${lastName}&api_key=${process.env.HUNTER_API_KEY}`
+    );
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      data?: { email?: string };
+    };
+
+    return data.data?.email || null;
+  } catch (err) {
+    return null;
+  }
 }
 
 export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]> {
