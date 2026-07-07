@@ -108,14 +108,19 @@ export async function POST(req: NextRequest) {
             return null;
           });
           if (hunterEmail) {
-            emailResult = {
-              email: hunterEmail,
-              source: "hunter",
-              confidence: 85,
-              verified: true,
-            };
-            emailSources.push(emailResult);
-            log(`people-lookup | ✓ Hunter found: ${hunterEmail}`);
+            // Validate email domain matches company
+            if (isValidCompanyEmail(hunterEmail, company)) {
+              emailResult = {
+                email: hunterEmail,
+                source: "hunter",
+                confidence: 85,
+                verified: true,
+              };
+              emailSources.push(emailResult);
+              log(`people-lookup | ✓ Hunter found: ${hunterEmail}`);
+            } else {
+              log(`people-lookup | ✗ Hunter email rejected (domain mismatch): ${hunterEmail} for ${company}`);
+            }
           } else {
             log(`people-lookup | ✗ Hunter no result`);
           }
@@ -280,14 +285,19 @@ export async function POST(req: NextRequest) {
             return null;
           });
           if (exaEmail) {
-            emailResult = {
-              email: exaEmail,
-              source: "exa",
-              confidence: 65,
-              verified: false,
-            };
-            emailSources.push(emailResult);
-            log(`people-lookup | ✓ Exa found: ${exaEmail}`);
+            // Validate email domain matches company (Exa is unverified, so stricter check)
+            if (isValidCompanyEmail(exaEmail, company)) {
+              emailResult = {
+                email: exaEmail,
+                source: "exa",
+                confidence: 65,
+                verified: false,
+              };
+              emailSources.push(emailResult);
+              log(`people-lookup | ✓ Exa found: ${exaEmail}`);
+            } else {
+              log(`people-lookup | ✗ Exa email rejected (domain mismatch): ${exaEmail} for ${company}`);
+            }
           } else {
             log(`people-lookup | ✗ Exa no result`);
           }
