@@ -11,6 +11,51 @@ interface EmailResult {
   verified: boolean;
 }
 
+// Verify email domain matches company
+function isValidCompanyEmail(email: string, company: string): boolean {
+  if (!email || !company) return false;
+
+  const emailDomain = email.split("@")[1]?.toLowerCase();
+  if (!emailDomain) return false;
+
+  // Extract company domain variants
+  const companyClean = company
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
+
+  const variants = [
+    companyClean.replace(/\s+/g, ""), // "google"
+    companyClean.split(" ")[0], // "google" from "google cloud"
+    company.toLowerCase().replace(/\s+/g, "-"), // "google-cloud"
+  ];
+
+  // Check if email domain contains company name
+  const isMatch = variants.some((v) => emailDomain.includes(v));
+
+  // Block suspicious domains
+  const blocklist = [
+    "example.com",
+    "test.com",
+    "mail.com",
+    "domain.com",
+    "company.com",
+    "business.com",
+    "email.com",
+    "corporate.com",
+    "temp.com",
+    "temp-mail.com",
+    "maildrop.com",
+    "mailinator.com",
+    "10minutemail.com",
+  ];
+
+  const isBlocked = blocklist.includes(emailDomain);
+
+  // Require match (or be known-good source like apollo)
+  return isMatch && !isBlocked;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const company: string = body?.company?.trim() ?? "";
@@ -176,8 +221,16 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Validate email matches company domain
+        if (emailResult && !isValidCompanyEmail(emailResult.email, company)) {
+          log(`people-lookup | ⚠️ REJECTED email for ${person.name}: ${emailResult.email} (domain mismatch - doesn't match ${company})`);
+          emailResult = null; // Discard wrong email
+        }
+
         if (emailResult) {
-          log(`people-lookup | email found for ${person.name}: ${emailResult.email} (${emailResult.source}, ${emailResult.confidence}% confidence)`);
+          log(`people-lookup | ✓ email found for ${person.name}: ${emailResult.email} (${emailResult.source}, ${emailResult.confidence}% confidence, verified: ${emailResult.verified})`);
+        } else {
+          log(`people-lookup | ✗ no valid email for ${person.name}`);
         }
 
         return {

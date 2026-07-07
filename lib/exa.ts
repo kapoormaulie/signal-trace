@@ -87,10 +87,28 @@ function scoreConfidence(url: string, title: string, summary: string, company: s
   return Math.min(100, score);
 }
 
+// Extract company domain from name (e.g., "Google" → "google.com")
+function getCompanyDomain(companyName: string): string[] {
+  const clean = companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
+
+  const variants = [
+    clean.replace(/\s+/g, ""), // "google" from "Google"
+    clean.split(" ")[0], // "google" from "google cloud"
+    companyName.toLowerCase().replace(/\s+/g, "-"), // "google-cloud"
+  ];
+
+  return variants.map((v) => `${v}.com`);
+}
+
 // Validate email format and domain
 function isValidEmail(email: string, companyName: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) return false;
+
+  const lower = email.toLowerCase();
 
   // Filter out spam/test emails
   const blocklist = [
@@ -103,10 +121,33 @@ function isValidEmail(email: string, companyName: string): boolean {
     "contact@",
     "example.com",
     "test.com",
+    "mail.com",
+    "domain.com",
+    "company.com",
+    "business.com",
+    "email.com",
+    "corporate.com",
   ];
 
-  const lower = email.toLowerCase();
   if (blocklist.some((b) => lower.includes(b))) return false;
+
+  // STRICT: Email domain should match company (or be close)
+  const companyDomains = getCompanyDomain(companyName);
+  const emailDomain = email.split("@")[1]?.toLowerCase();
+
+  if (!emailDomain) return false;
+
+  // Check if email domain is company domain or very similar
+  const isCompanyEmail = companyDomains.some((cd) => emailDomain.includes(cd.replace(".com", "")));
+
+  if (!isCompanyEmail) {
+    // Allow some common professional domains (LinkedIn, etc) only if HIGH confidence
+    const allowedDomains = ["linkedin.com", "github.com"];
+    const isAllowed = allowedDomains.includes(emailDomain);
+    if (!isAllowed) {
+      return false; // Domain doesn't match company - likely wrong email
+    }
+  }
 
   return true;
 }

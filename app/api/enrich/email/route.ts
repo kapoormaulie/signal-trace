@@ -190,28 +190,70 @@ export async function POST(req: NextRequest) {
     // Sort by confidence
     emailSources.sort((a, b) => b.confidence - a.confidence);
 
-    if (emailSources.length === 0) {
-      log(`No email found for ${firstName} ${lastName} at ${company}`);
+    // Validate emails - must match company domain
+    const validatedSources = emailSources.filter((source) => {
+      const emailDomain = source.email.split("@")[1]?.toLowerCase();
+      const companyClean = company.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      if (!emailDomain) return false;
+
+      // Block suspicious domains
+      const blocklist = [
+        "example.com",
+        "test.com",
+        "mail.com",
+        "domain.com",
+        "company.com",
+        "business.com",
+        "email.com",
+        "temp.com",
+        "mailinator.com",
+      ];
+
+      if (blocklist.includes(emailDomain)) {
+        log(`Filtering out suspicious domain: ${source.email}`);
+        return false;
+      }
+
+      // Check if email domain contains company name (strict validation)
+      const isMatch = emailDomain.includes(companyClean) || emailDomain.includes(company.toLowerCase().replace(/\s+/g, ""));
+
+      if (!isMatch && source.verified) {
+        // If verified source but domain doesn't match, still allow if high confidence
+        log(`Domain mismatch for ${source.email} from ${source.source}, but keeping (verified, ${source.confidence}% confidence)`);
+        return true;
+      }
+
+      if (!isMatch) {
+        log(`Filtering out ${source.email} - domain doesn't match ${company}`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validatedSources.length === 0) {
+      log(`No valid email found for ${firstName} ${lastName} at ${company} (all sources filtered)`);
       return NextResponse.json(
         {
           email: null,
           alternatives: [],
           confidence: 0,
-          message: "No email found from any source",
+          message: "No valid email found from any source (domain validation failed)",
         }
       );
     }
 
     log(
-      `Email enriched: ${emailSources[0].email} (${emailSources[0].source}, ${emailSources[0].confidence}% confidence)`
+      `Email enriched: ${validatedSources[0].email} (${validatedSources[0].source}, ${validatedSources[0].confidence}% confidence, verified: ${validatedSources[0].verified})`
     );
 
     return NextResponse.json({
-      email: emailSources[0].email,
-      source: emailSources[0].source,
-      confidence: emailSources[0].confidence,
-      verified: emailSources[0].verified,
-      alternatives: emailSources.slice(1).map((s) => ({
+      email: validatedSources[0].email,
+      source: validatedSources[0].source,
+      confidence: validatedSources[0].confidence,
+      verified: validatedSources[0].verified,
+      alternatives: validatedSources.slice(1).map((s) => ({
         email: s.email,
         source: s.source,
         confidence: s.confidence,
