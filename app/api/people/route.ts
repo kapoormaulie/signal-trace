@@ -79,8 +79,11 @@ export async function POST(req: NextRequest) {
         let emailResult: EmailResult | null = null;
         const emailSources: EmailResult[] = [];
 
+        log(`people-lookup | enriching ${person.name}: FullEnrich=${!!process.env.FULLENRICH_API_KEY} AiArk=${!!process.env.AIARK_API_KEY} Hunter=${!!process.env.HUNTER_API_KEY} Apollo=${!!process.env.APOLLO_API_KEY}`);
+
         // PRIORITY 1: FullEnrich (most accurate if available)
         if (process.env.FULLENRICH_API_KEY) {
+          log(`people-lookup | trying FullEnrich for ${person.name}...`);
           try {
             const response = await fetch("https://api.fullenrich.com/v1/person/search", {
               method: "POST",
@@ -126,12 +129,17 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (err) {
-            // Continue to next source
+            log(`people-lookup | FullEnrich error: ${err instanceof Error ? err.message : String(err)}`);
           }
+        }
+
+        if (emailResult) {
+          log(`people-lookup | ✓ FullEnrich found: ${emailResult.email}`);
         }
 
         // PRIORITY 2: AI Ark
         if (!emailResult && process.env.AIARK_API_KEY) {
+          log(`people-lookup | trying AI Ark for ${person.name}...`);
           try {
             const response = await fetch("https://api.aiark.com/v1/person", {
               method: "POST",
@@ -175,13 +183,21 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (err) {
-            // Continue to next source
+            log(`people-lookup | AI Ark error: ${err instanceof Error ? err.message : String(err)}`);
           }
+        }
+
+        if (emailResult) {
+          log(`people-lookup | ✓ AI Ark found: ${emailResult.email}`);
         }
 
         // PRIORITY 3: Hunter.io
         if (!emailResult) {
-          const hunterEmail = await findEmailViaHunter(firstName, lastName, company).catch(() => null);
+          log(`people-lookup | trying Hunter for ${person.name}...`);
+          const hunterEmail = await findEmailViaHunter(firstName, lastName, company).catch((err) => {
+            log(`people-lookup | Hunter error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
           if (hunterEmail) {
             emailResult = {
               email: hunterEmail,
@@ -190,12 +206,19 @@ export async function POST(req: NextRequest) {
               verified: true,
             };
             emailSources.push(emailResult);
+            log(`people-lookup | ✓ Hunter found: ${hunterEmail}`);
+          } else {
+            log(`people-lookup | ✗ Hunter no result`);
           }
         }
 
         // PRIORITY 4: Exa web search
         if (!emailResult) {
-          const exaEmail = await findPersonEmail(firstName, lastName, company, person.linkedinUrl).catch(() => null);
+          log(`people-lookup | trying Exa for ${person.name}...`);
+          const exaEmail = await findPersonEmail(firstName, lastName, company, person.linkedinUrl).catch((err) => {
+            log(`people-lookup | Exa error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
           if (exaEmail) {
             emailResult = {
               email: exaEmail,
@@ -204,12 +227,19 @@ export async function POST(req: NextRequest) {
               verified: false,
             };
             emailSources.push(emailResult);
+            log(`people-lookup | ✓ Exa found: ${exaEmail}`);
+          } else {
+            log(`people-lookup | ✗ Exa no result`);
           }
         }
 
         // PRIORITY 5: Apollo match
         if (!emailResult) {
-          const apolloMatch = await matchPersonInApollo(firstName, lastName, company, person.linkedinUrl).catch(() => null);
+          log(`people-lookup | trying Apollo for ${person.name}...`);
+          const apolloMatch = await matchPersonInApollo(firstName, lastName, company, person.linkedinUrl).catch((err) => {
+            log(`people-lookup | Apollo error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
           if (apolloMatch?.email) {
             emailResult = {
               email: apolloMatch.email,
@@ -218,13 +248,25 @@ export async function POST(req: NextRequest) {
               verified: true,
             };
             emailSources.push(emailResult);
+            log(`people-lookup | ✓ Apollo found: ${apolloMatch.email}`);
+          } else {
+            log(`people-lookup | ✗ Apollo no result`);
           }
         }
 
-        // Validate email matches company domain
-        if (emailResult && !isValidCompanyEmail(emailResult.email, company)) {
-          log(`people-lookup | ⚠️ REJECTED email for ${person.name}: ${emailResult.email} (domain mismatch - doesn't match ${company})`);
-          emailResult = null; // Discard wrong email
+        // Validate email matches company domain (but trust verified sources)
+        if (emailResult) {
+          const isValid = isValidCompanyEmail(emailResult.email, company);
+          const isVerifiedSource = ["fullenrich", "aiark", "hunter", "apollo"].includes(emailResult.source);
+
+          if (!isValid && !isVerifiedSource) {
+            // Unverified source + domain mismatch = reject
+            log(`people-lookup | ⚠️ REJECTED email for ${person.name}: ${emailResult.email} (unverified source + domain mismatch)`);
+            emailResult = null;
+          } else if (!isValid && isVerifiedSource) {
+            // Verified source + domain mismatch = log warning but keep it
+            log(`people-lookup | ⚠️ WARNING: email domain mismatch but keeping ${emailResult.email} from verified source (${emailResult.source})`);
+          }
         }
 
         if (emailResult) {
