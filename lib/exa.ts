@@ -1,5 +1,6 @@
 import Exa from "exa-js";
 import type { Signal, PersonResult } from "@/types";
+import { log } from "@/lib/logger";
 
 let _exa: Exa | undefined;
 function exa(): Exa {
@@ -599,44 +600,112 @@ async function enrichEmailWithHunter(
   }
 }
 
-export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]> {
-  // Extract name from LinkedIn URL: linkedin.com/in/jane-smith-123 → jane smith
-  const nameMatch = linkedinUrl.match(/linkedin\.com\/in\/([a-z0-9-]+)/i);
-  const liName = nameMatch ? nameMatch[1].replace(/-\d+$/, "").replace(/-/g, " ") : "";
+export async function findPersonLinkedInUrl(name: string, company: string): Promise<string | null> {
+  try {
+    const response = await exa().searchAndContents(
+      `site:linkedin.com/in ${name} ${company}`,
+      { numResults: 1, includeDomains: ["linkedin.com"] }
+    );
+    return response.results[0]?.url ?? null;
+  } catch (err) {
+    log(`findPersonLinkedInUrl error: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+export async function fetchPersonSignals(linkedinUrlOrName: string, company?: string): Promise<Signal[]> {
+  // Accept either a full LinkedIn URL or just a name
+  // LinkedIn URL format: linkedin.com/in/jane-smith-123 → jane smith
+  // Direct name format: jane-smith → jane smith
+  let liName = "";
+  const isLinkedInUrl = linkedinUrlOrName.includes("linkedin.com/in/");
+
+  if (isLinkedInUrl) {
+    const nameMatch = linkedinUrlOrName.match(/linkedin\.com\/in\/([a-z0-9-]+)/i);
+    liName = nameMatch ? nameMatch[1].replace(/-\d+$/, "").replace(/-/g, " ") : "";
+  } else {
+    // Assume it's a direct name (already in slug format or plain)
+    liName = linkedinUrlOrName.replace(/-/g, " ").trim();
+  }
+
+  log(`fetchPersonSignals: input="${linkedinUrlOrName}", company="${company ?? "none"}", extracted name="${liName}"`);
 
   const searches: Promise<Signal[]>[] = [];
 
-  // 1. LinkedIn-similar content (what they're associated with)
-  searches.push(
-    exa()
-      .findSimilarAndContents(linkedinUrl, {
-        numResults: 6,
-        summary: {
-          query: "What is this person known for, working on, or advocating?",
-        },
-        excludeSourceDomain: false,
-      })
-      .then((r) =>
-        r.results
-          .filter((res) => res.summary)
-          .map((res) => ({
-            id: res.id,
-            title: `${res.title ?? res.url}`,
-            summary: res.summary as string,
-            url: res.url,
-            publishedDate: res.publishedDate,
-            type: "person" as const,
-          }))
-      )
-      .catch(() => [])
-  );
+  // 1. LinkedIn-similar content (what they're associated with) — only if we have a full URL
+  if (isLinkedInUrl) {
+    searches.push(
+      exa()
+        .findSimilarAndContents(linkedinUrlOrName, {
+          numResults: 6,
+          summary: {
+            query: "What is this person known for, working on, or advocating?",
+          },
+          excludeSourceDomain: false,
+        })
+        .then((r) =>
+          r.results
+            .filter((res) => res.summary)
+            .map((res) => ({
+              id: res.id,
+              title: `${res.title ?? res.url}`,
+              summary: res.summary as string,
+              url: res.url,
+              publishedDate: res.publishedDate,
+              type: "person" as const,
+            }))
+        )
+        .catch(() => [])
+    );
+  }
 
-  if (liName) {
+  // For name-only searches (no LinkedIn URL), search for company news mentioning the person
+  if (!isLinkedInUrl && liName && company) {
+    const companyNewsQuery = `"${liName}" ${company} news announcement CEO founder executive leadership`;
+    log(`fetchPersonSignals: NAME-ONLY search for: ${companyNewsQuery}`);
+
+    searches.push(
+      exa()
+        .searchAndContents(
+          companyNewsQuery,
+          {
+            numResults: 8,
+            summary: {
+              query: `What news or announcements mention ${liName} at ${company}?`,
+            },
+            type: "neural",
+            startPublishedDate: sixMonthsAgo(),
+          }
+        )
+        .then((r) => {
+          log(`fetchPersonSignals: NAME-ONLY search returned ${r.results.length} results`);
+          return r.results
+            .filter((res) => res.summary)
+            .map((res) => ({
+              id: res.id,
+              title: res.title ?? res.url,
+              summary: res.summary as string,
+              url: res.url,
+              publishedDate: res.publishedDate,
+              type: "person" as const,
+            }));
+        })
+        .catch((err) => {
+          log(`fetchPersonSignals: NAME-ONLY search error: ${err instanceof Error ? err.message : String(err)}`);
+          return [];
+        })
+    );
+  }
+
+  if (liName && isLinkedInUrl) {
+    log(`fetchPersonSignals: liName is not empty, running searches for "${liName}"${company ? ` at ${company}` : ""}`);
+    const companyQuery = company ? `${company}` : "";
+
     // 2. Career announcements and job changes
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" promotion announcement joined appointed hired "new role" OR "now leading" OR "appointed as"`,
+          `"${liName}" ${companyQuery} promotion announcement joined appointed hired "new role" OR "now leading" OR "appointed as"`,
           {
             numResults: 6,
             summary: {
@@ -648,7 +717,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
         )
         .then((r) =>
           r.results
-            .filter((res) => res.summary && res.publishedDate)
+            .filter((res) => res.summary)
             .map((res) => ({
               id: res.id,
               title: `${liName} — ${res.title ?? res.url}`,
@@ -665,7 +734,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" wrote published author opinion article blog post medium`,
+          `"${liName}" ${companyQuery} wrote published author opinion article blog post medium`,
           {
             numResults: 6,
             summary: {
@@ -694,7 +763,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" speaking conference keynote panel podcast interview`,
+          `"${liName}" ${companyQuery} speaking conference keynote panel podcast interview`,
           {
             numResults: 5,
             summary: {
@@ -723,7 +792,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" launches product feature release announcement milestone`,
+          `"${liName}" ${companyQuery} launches product feature release announcement milestone`,
           {
             numResults: 5,
             summary: {
@@ -752,7 +821,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" award recognized named "40 under 40" OR "most influential" OR "top leaders"`,
+          `"${liName}" ${companyQuery} award recognized named "40 under 40" OR "most influential" OR "top leaders"`,
           {
             numResults: 4,
             summary: {
@@ -781,7 +850,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
     searches.push(
       exa()
         .searchAndContents(
-          `"${liName}" team growth expansion hiring department milestone`,
+          `"${liName}" ${companyQuery} team growth expansion hiring department milestone`,
           {
             numResults: 4,
             summary: {
@@ -810,15 +879,21 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
   const results = await Promise.allSettled(searches);
   const allSignals: Signal[] = [];
 
-  for (const r of results) {
+  results.forEach((r, idx) => {
     if (r.status === "fulfilled") {
+      const count = r.value.length;
       allSignals.push(...r.value);
+      if (count > 0) {
+        log(`fetchPersonSignals search #${idx}: ${count} signals`);
+      }
+    } else {
+      log(`fetchPersonSignals search #${idx}: error — ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
     }
-  }
+  });
 
   // Remove duplicates, keep newest first
   const seen = new Set<string>();
-  return allSignals
+  const final = allSignals
     .filter((s) => {
       if (seen.has(s.url)) return false;
       seen.add(s.url);
@@ -830,4 +905,7 @@ export async function fetchPersonSignals(linkedinUrl: string): Promise<Signal[]>
       return bDate - aDate;
     })
     .slice(0, 10); // Return up to 10 person-specific signals
+
+  log(`fetchPersonSignals: returning ${final.length} unique signals after dedup`);
+  return final;
 }

@@ -203,3 +203,45 @@ export async function generateEmail(
 
   return result;
 }
+
+// Cheap, body-only variant — same signals/prospect, different angle/tone.
+// Skips the landing page entirely so it's a fraction of the cost of generateEmail.
+export async function generateEmailVariant(
+  prospect: ProspectInput,
+  signals: Signal[],
+  sender: SenderContext,
+  previousBody: string
+): Promise<string> {
+  const firstName = prospect.name.split(" ")[0];
+
+  const prompt = `${buildUserPrompt(prospect, signals, sender)}
+
+## Previous version (already sent to review, do NOT reuse its opening line or structure)
+${previousBody}
+
+Write ONE alternative email body for the same prospect and signals — a genuinely different angle, opening line, and tone than the previous version above (e.g. if the previous one led with a question, lead with a direct statement; if it was formal, make this one more conversational, or vice versa). Same rules as before: 150-200 words, embed [LP_URL] once naturally, use ${firstName} at least once.
+
+Output ONLY this JSON: { "emailBody": "..." }`;
+
+  const response = await groq().chat.completions.create({
+    model: MODEL,
+    max_tokens: 1024,
+    temperature: 0.85,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+  });
+
+  const raw = response.choices[0]?.message?.content ?? "";
+  let parsed: { emailBody: string };
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    log(`Groq variant JSON parse failed. First 400 chars: ${raw.slice(0, 400)}`);
+    throw new Error("Groq returned malformed JSON for the variant — check logs/run.log for details.");
+  }
+
+  return parsed.emailBody.replace(/\[FIRST_NAME\]/gi, firstName);
+}

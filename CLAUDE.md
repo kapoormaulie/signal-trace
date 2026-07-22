@@ -32,19 +32,32 @@ APOLLO_API_KEY=your_apollo_api_key
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx/yyy/zzz
 NEXT_PUBLIC_BASE_URL=http://localhost:3000
 FULLENRICH_API_KEY=your_fullenrich_api_key       # optional — most accurate email enrichment
-AIARK_API_KEY=your_aiark_api_key                 # optional — high-confidence email/data enrichment
+AIARK_API_KEY=your_aiark_api_key                 # optional — company search (Discovery) + person email lookup
+OCEAN_API_KEY=your_ocean_api_key                 # optional — lookalike company search (Discovery)
+FINDYMAIL_API_KEY=your_findymail_api_key         # optional — email finder/verifier (name + domain)
 HUNTER_API_KEY=your_hunter_api_key               # optional — email finder/verifier (25 finds + 50 verifications/mo)
 ANTHROPIC_API_KEY=your_anthropic_api_key         # optional — used for logo vision analysis (currently using file-size heuristics instead)
 ```
 
-### Email Enrichment Priority (descending):
+### Email Enrichment Priority (descending, in `/api/people`):
 1. **FullEnrich cached** (95% confidence) — Results from async webhook enrichment, cached in Redis
 2. **Hunter.io** (85% confidence) — Synchronous email finder/verifier
-3. **Apollo.io** (80% confidence) — Verified employee database match
-4. **Exa web search** (65% confidence) — Unverified web search extraction
-5. **FullEnrich async** — People without emails queued for background enrichment; results arrive via webhook
+3. **Findymail** (88% confidence) — Synchronous name+domain finder (`lib/findymail.ts`); domain is guessed from the company name when the input isn't already a domain
+4. **FullEnrich (sync)** (95% confidence) — Direct people-search call, separate from the cached-webhook tier above
+5. **AI Ark** (92% confidence) — `lib/aiark.ts` `findEmailViaAiArk()`. Two possible paths: if a LinkedIn URL is already known (usually is, from Exa's people search), calls `POST /v1/people/export/single` with `{url}` directly; otherwise searches `POST /v1/people` by name+domain first to get an AI-Ark person ID, then exports that ID. Real emails come only from the export call — the search endpoint returns profile data but never an email.
+6. **Hunter.io** (85% confidence) — second attempt, redundant with #2 (pre-existing, not cleaned up)
+7. **Exa web search** (65% confidence) — Unverified web search extraction
+8. **Apollo.io** (80% confidence) — Verified employee database match
+9. **FullEnrich async** — People without emails queued for background enrichment; results arrive via webhook
 
 **FullEnrich Flow**: When `/api/people` finds people without emails, they're automatically queued for FullEnrich bulk enrichment. Results arrive asynchronously via webhook at `/api/webhooks/fullenrich`, cached in Redis, and returned on subsequent searches.
+
+### Company Discovery Sourcing (descending, in `/api/discover`, filter-builder mode only):
+1. **Ocean.io** (`lib/ocean.ts`) — used only when the "Find companies like these" seed-domain field is filled in; hits `POST /v3/search/companies` with `companiesFilters.lookalikeDomains`. Note: despite Ocean's own published docs example showing a flat response, the live API wraps each result as `{ company: {...}, relevance }` — confirmed by testing directly against the real API.
+2. **AI Ark** (`lib/aiark.ts` `searchCompaniesAiArk()`) — real structured filtering (industry/size/location/funding) against their 70M+ verified company database via `POST /v1/companies`, `X-TOKEN` header auth.
+3. **Exa web search** — fallback when neither key is set, or if either API errors. Builds a fuzzy natural-language query from the filters and does a semantic web search — not real structured filtering.
+
+The **ICP match** tab (free-text description, not structured filters) always uses Exa — that's a semantic-search job, not a filter job, so AI Ark/Ocean aren't a fit there.
 
 ---
 
@@ -63,7 +76,8 @@ ANTHROPIC_API_KEY=your_anthropic_api_key         # optional — used for logo vi
 | Duplicate detection | Fuse.js fuzzy match |
 | State | React `useState` + localStorage (settings, logged-out) or account (logged-in) |
 | Auth | Self-built email/password — Node `crypto.scrypt` hashing, Redis-backed session cookies (no new deps/services) |
-| Email enrichment | FullEnrich (95%, async webhook) + Hunter.io (85%, sync) + Apollo (80%) + Exa (65%) |
+| Email enrichment | FullEnrich (95%, async webhook) + Findymail (88%, sync) + AI Ark (92%, sync) + Hunter.io (85%, sync) + Apollo (80%) + Exa (65%) |
+| Company discovery | Ocean.io (lookalike) + AI Ark (structured filters) + Exa (semantic ICP search) |
 
 ---
 
@@ -84,12 +98,15 @@ SignalTrace/
 │   │       ├── page.tsx        # Server component — Redis visit logging + renders LpPage
 │   │       └── LpPage.tsx      # CLIENT component — full premium standalone LP
 │   └── api/
-│       ├── people/             # Exa people search (+ Hunter/Apollo email enrichment)
+│       ├── people/             # Exa people search (+ FullEnrich/Findymail/AI Ark/Hunter/Apollo/Exa email waterfall)
 │       ├── signals/            # Exa signal search + duplicate check
-│       ├── generate/           # Groq email + LP generation
+│       ├── generate/
+│       │   ├── route.ts        # Groq email + LP generation (full package, one call)
+│       │   └── variant/        # Groq on-demand alternate email body only (no LP) — cheap, 1024 max_tokens
 │       ├── lp/                 # LP create/update in Redis
-│       ├── history/            # Redis history read/write (?scopeId=deviceId|userId)
-│       ├── discover/           # ICP company discovery (count + exclude params)
+│       ├── history/            # Redis history read/write (?scopeId=deviceId|userId); PATCH tags replyStatus
+│       ├── discover/           # Company discovery — Ocean.io/AI Ark (filter mode) or Exa (ICP mode / fallback)
+│       ├── icp/                # GET/POST account-scoped ICP profile (requires session)
 │       ├── settings/           # GET/POST account-scoped settings (requires session)
 │       ├── auth/
 │       │   └── {signup,login,logout,me}/route.ts
@@ -116,19 +133,23 @@ SignalTrace/
 │   ├── QualityScores.tsx       # Animated score bars
 │   ├── ReviewPanel.tsx         # Email + LP editor (mobile: tab switcher)
 │   ├── PushButton.tsx          # Push to Apollo/CRM (one required) + Slack — CSV download always available
-│   └── HistoryTable.tsx        # History with LP visit counts
+│   └── HistoryTable.tsx        # History with LP visit counts + reply-status tagging dropdown
 │
 ├── hooks/
 │   ├── useSettings.ts          # localStorage (logged out) or /api/settings (logged in) settings hook
+│   ├── useIcpProfile.ts        # localStorage (logged out) or /api/icp (logged in) ICP profile hook
 │   └── useAuth.ts              # { user, loading, logout } — fetches /api/auth/me
 │
 ├── lib/
-│   ├── claude.ts               # Groq generation — email + full rich LP in one call
+│   ├── claude.ts               # Groq generation — email + full rich LP in one call, + on-demand body-only variant
 │   ├── exa.ts                  # Exa search + people/person signals (7 parallel strategies)
 │   ├── apollo.ts               # Apollo CRM + people search integration
 │   ├── slack.ts                # Slack webhook
 │   ├── crm.ts                  # Generic CRM webhook POST client
 │   ├── hunter.ts               # Hunter.io email finder/verifier (optional, sync)
+│   ├── findymail.ts            # Findymail email finder (optional, sync, name+domain)
+│   ├── aiark.ts                # AI Ark — company search (Discovery) + person email lookup (search-then-export)
+│   ├── ocean.ts                # Ocean.io — lookalike company search (Discovery)
 │   ├── fullenrich.ts           # FullEnrich bulk enrichment (async webhook)
 │   ├── logo.ts                 # Logo scraping + rebrand detection + design trend analysis
 │   ├── auth.ts                 # scrypt password hashing + session cookie helpers
@@ -320,17 +341,45 @@ After parse: `result.landingPageContent.ctaUrl = sender.defaultCtaUrl` always ov
 ## App Flow
 
 ### Single Prospect
-1. Enter company → Exa finds decision-makers (email enriched via Hunter → Exa → Apollo match, in that priority)
+1. Enter company → Exa finds decision-makers (email enriched via the waterfall in `/api/people` — see Email Enrichment Priority above)
 2. Pick person (PeoplePicker)
 3. Pick buying signal (SignalPicker) or skip
-4. Generate → Groq outputs email + full LP
+4. Generate → Groq outputs email + full LP; in review, optionally click "+ Generate another version" for up to 2 more alternate email-body angles (see Copy Variants below)
 5. Review + edit (ReviewPanel — mobile has email/LP tab switcher)
 6. Push → Apollo sequence and/or CRM webhook (one required) + Slack — blocked only if neither CRM target is configured
 
 ### Bulk Mode
-1. Find companies via ICP / filters / CSV — discovery result count is user-chosen (10/20/50/100 pills or custom input, max 100); re-running a search excludes companies already added to the queue this session so you get a fresh set
+1. Find companies via ICP / filters / CSV — discovery result count is user-chosen (10/20/50/100 pills or custom input, max 100); re-running a search excludes companies already added to the queue this session so you get a fresh set. Filter-builder mode sources from Ocean.io/AI Ark when configured (see Company Discovery Sourcing above); ICP-description mode always uses Exa.
 2. Set role, auto-push toggle, min quality score
 3. Generate all → **4-worker concurrency pool** (not sequential), live progress table, "Export CSV" once done
+
+---
+
+## ICP Profile Persistence
+
+The ICP-match description and filter-builder fields (industry/size/location/funding/keywords/lookalike domains) persist across sessions instead of resetting to blank every time you open Discovery.
+
+- `hooks/useIcpProfile.ts` — same shape as `useSettings.ts`: `localStorage` when logged out, `/api/icp` (Redis, key `user-icp:<userId>`) when logged in, seeds the account from local on first login
+- `components/CompanyDiscovery.tsx` seeds its fields from the saved profile once on load (won't clobber active typing on re-renders), and saves whatever you searched with every time you click "Find companies" / "Find matching companies"
+- Saved profile shows a small "Saved from your last search" hint under the ICP description field
+
+## Copy Variants (on-demand)
+
+A second full Groq call is deliberately **not** made automatically on every generation — only when the "+ Generate another version" button is clicked in review (Single mode only, no change to Bulk mode's cost profile).
+
+- `lib/claude.ts` `generateEmailVariant()` — body-only Groq call (1024 max_tokens vs. the main call's 4096), explicitly prompted to differ in angle/tone/opening line from the previous version; skips landing-page regeneration entirely
+- `app/api/generate/variant/route.ts` — the route
+- `app/page.tsx` tracks `emailVariants[]` (capped at `MAX_EMAIL_VARIANTS = 3`) + `selectedVariantIdx`; switching variants preserves any hand-edits on the one you're leaving before switching
+- `components/ReviewPanel.tsx` — "Version 1 / Version 2…" pills + the generate button, next to the email body header
+
+## Reply Tracking
+
+Manual outcome tagging per prospect in `/history`, rolled into a positive-reply-rate stat — the start of a feedback loop, not (yet) automated ingestion from Apollo/Instantly.
+
+- `types/index.ts` `ReplyStatus` = `"positive" | "neutral" | "negative" | "bounced"`, stored as `ProspectRecord.replyStatus`
+- `app/api/history/route.ts` `PATCH` — `{ id, replyStatus }`, merges into the existing Redis record via `getProspect` + `saveProspect`
+- `components/HistoryTable.tsx` — colored dropdown per row in a new "Reply" column
+- `app/history/page.tsx` — stat bar showing positive reply rate, tag counts vs. total contacted; optimistic UI update; reply status included in CSV export
 
 ---
 
@@ -461,6 +510,9 @@ npx tsc --noEmit     # TypeScript check (no output = clean)
 | FullEnrich emails not appearing | Webhook not yet received. Results are async; check Redis cache after 2–5 min: `redis-cli GET fullenrich:person:{id}` |
 | FullEnrich webhook 400 error | Check that `NEXT_PUBLIC_BASE_URL` is correct (must be publicly accessible, not localhost) |
 | People search returns `emailConfidence: 0` | No emails found from any source; people queued for FullEnrich enrichment, check back after enrichment completes |
+| AI Ark `429` rate limit in logs | 5 req/s, 300/min, 18,000/hr cap — the waterfall falls through to the next enrichment tier automatically, no action needed unless it's persistent |
+| Discovery filter-builder returns Exa results instead of AI Ark/Ocean | Either the relevant key isn't set, or that API errored (check `logs/run.log` for `AI Ark error` / `Ocean.io error` — it falls back to Exa automatically rather than failing the request) |
+| Ocean.io lookalike search returns nothing | Check `filters.lookalikeDomains` actually has comma-separated domains — this path only activates when seed domains are given, otherwise Discovery falls through to AI Ark/Exa |
 
 ---
 
@@ -470,5 +522,6 @@ All design/feature decisions from build sessions are in `session-archive.html`:
 - **Session 1**: Design/LP system
 - **Session 2**: CRM alternatives, CSV export, auth + account sync, bulk concurrency, discovery count/exclude, Hunter.io enrichment
 - **Session 3**: FullEnrich webhook integration (async bulk enrichment with Redis caching), auto-queueing unfound contacts for enrichment
+- **Session 4**: ICP profile persistence, on-demand copy variants, reply tracking + positive-reply-rate stat, AI Ark company search (Discovery filter-builder), Ocean.io lookalike search (Discovery), Findymail email enrichment, fixed a pre-existing broken AI Ark person-lookup integration that was silently failing against a nonexistent host on every call
 
 The design reference for LPs is `sarah-retool.html` (currently missing from disk — see LP Design Reference note above).

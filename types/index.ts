@@ -68,6 +68,8 @@ export interface LandingPageContent {
   ctaSub?: string;
 }
 
+export type ReplyStatus = "positive" | "neutral" | "negative" | "bounced";
+
 export interface ProspectRecord {
   id: string;
   name: string;
@@ -85,6 +87,7 @@ export interface ProspectRecord {
   pushed: boolean;
   deviceId?: string;   // browser that created this record — scopes /history to that device
   userId?: string;     // logged-in account that created this record — scopes /history to that account
+  replyStatus?: ReplyStatus; // manually tagged outcome, feeds the positive-reply-rate stat on /history
 }
 
 export interface ProspectInput {
@@ -116,3 +119,16 @@ export type RunStage =
   | "review"
   | "pushing"
   | "done";
+
+export interface IcpProfile {
+  description: string;
+  filters: {
+    industry: string;
+    size: string;
+    location: string;
+    funding: string;
+    keywords: string;
+    lookalikeDomains: string;
+  };
+  updatedAt: string;
+}

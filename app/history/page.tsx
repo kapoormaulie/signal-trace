@@ -8,7 +8,7 @@ import HistoryTable from "@/components/HistoryTable";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { getDeviceId } from "@/lib/deviceId";
 import { useAuth } from "@/hooks/useAuth";
-import type { ProspectRecord } from "@/types";
+import type { ProspectRecord, ReplyStatus } from "@/types";
 
 export default function HistoryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -25,6 +25,19 @@ export default function HistoryPage() {
       .catch(() => setError("Failed to load history"))
       .finally(() => setLoading(false));
   }, [user, authLoading]);
+
+  function handleUpdateReply(id: string, status: ReplyStatus | null) {
+    setProspects((prev) => prev.map((p) => (p.id === id ? { ...p, replyStatus: status ?? undefined } : p)));
+    fetch("/api/history", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, replyStatus: status }),
+    }).catch(() => {});
+  }
+
+  const tagged = prospects.filter((p) => p.replyStatus);
+  const positive = prospects.filter((p) => p.replyStatus === "positive");
+  const positiveReplyRate = prospects.length > 0 ? Math.round((positive.length / prospects.length) * 100) : 0;
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -69,6 +82,7 @@ export default function HistoryPage() {
                     "LP visits": p.lpVisits.length,
                     "Contacted at": p.contactedAt,
                     Pushed: p.pushed ? "yes" : "no",
+                    Reply: p.replyStatus ?? "",
                   }))
                 );
                 downloadCsv(`prospect-history-${new Date().toISOString().slice(0, 10)}.csv`, csv);
@@ -80,6 +94,21 @@ export default function HistoryPage() {
           )}
         </div>
 
+        {!loading && !error && prospects.length > 0 && (
+          <div className="mb-6 flex items-center gap-4 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-3">
+            <div>
+              <p className="text-lg font-bold text-ink tabular-nums">{positiveReplyRate}%</p>
+              <p className="text-[11px] text-ink-3">positive reply rate</p>
+            </div>
+            <div className="w-px h-8 bg-[var(--mist)]" />
+            <p className="text-xs text-ink-3">
+              <span className="text-ink font-semibold">{positive.length}</span> positive ·{" "}
+              <span className="text-ink font-semibold">{tagged.length}</span> tagged ·{" "}
+              <span className="text-ink font-semibold">{prospects.length}</span> contacted
+            </p>
+          </div>
+        )}
+
         {loading && <EcgLoader label="Loading history…" />}
 
         {error && (
@@ -88,7 +117,7 @@ export default function HistoryPage() {
           </div>
         )}
 
-        {!loading && !error && <HistoryTable prospects={prospects} />}
+        {!loading && !error && <HistoryTable prospects={prospects} onUpdateReply={handleUpdateReply} />}
       </main>
     </div>
   );

@@ -11,6 +11,12 @@ interface Props {
   lpUrl: string;
   onRegenerate?: () => void;
   regenerating?: boolean;
+  emailVariants?: string[];
+  selectedVariantIdx?: number;
+  onSelectVariant?: (idx: number) => void;
+  onGenerateVariant?: () => void;
+  generatingVariant?: boolean;
+  maxVariants?: number;
 }
 
 const inputCls =
@@ -24,6 +30,12 @@ export default function ReviewPanel({
   lpUrl,
   onRegenerate,
   regenerating = false,
+  emailVariants = [],
+  selectedVariantIdx = 0,
+  onSelectVariant,
+  onGenerateVariant,
+  generatingVariant = false,
+  maxVariants = 3,
 }: Props) {
   const [mobilePanel, setMobilePanel] = useState<"email" | "lp">("email");
 
@@ -90,9 +102,44 @@ export default function ReviewPanel({
 
         {/* Email editor */}
         <div className={`space-y-2 ${mobilePanel === "lp" ? "hidden sm:block" : "block"}`}>
-          <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-[0.08em]">
-            Email body
-          </h3>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h3 className="text-[11px] font-semibold text-ink-3 uppercase tracking-[0.08em]">
+              Email body
+            </h3>
+            {onGenerateVariant && (
+              <div className="flex items-center gap-1.5">
+                {emailVariants.length > 1 && emailVariants.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onSelectVariant?.(i)}
+                    className={`text-[11px] font-semibold px-2 py-1 rounded-lg border transition-all ${
+                      selectedVariantIdx === i
+                        ? "border-brand-400 bg-[rgba(99,102,241,0.1)] text-brand-500"
+                        : "border-[var(--input-border)] text-ink-3 hover:text-ink-2"
+                    }`}
+                  >
+                    Version {i + 1}
+                  </button>
+                ))}
+                {emailVariants.length < maxVariants && (
+                  <button
+                    onClick={onGenerateVariant}
+                    disabled={generatingVariant}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-brand-600 hover:text-brand-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {generatingVariant ? (
+                      <>
+                        <span className="w-2.5 h-2.5 border-2 border-brand-300/40 border-t-brand-500 rounded-full animate-spin" />
+                        Generating…
+                      </>
+                    ) : (
+                      <>+ Generate another version</>
+                    )}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <textarea
             value={emailBody}
             onChange={(e) => onEmailBodyChange(e.target.value)}

@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import crypto from "crypto";
-import type { ProspectRecord, LandingPageContent, Signal, PersonResult } from "@/types";
+import type { ProspectRecord, LandingPageContent, Signal, PersonResult, IcpProfile } from "@/types";
 import type { UserSettings } from "@/hooks/useSettings";
 
 export const redis = new Redis({
@@ -24,6 +24,7 @@ const KEYS = {
   userEmailIndex: (email: string) => `user-email:${email}`,
   session: (token: string) => `session:${token}`,
   userSettings: (userId: string) => `user-settings:${userId}`,
+  userIcp: (userId: string) => `user-icp:${userId}`,
 } as const;
 
 // ── Prospects ──────────────────────────────────────────────────────────────
@@ -202,4 +203,14 @@ export async function getUserSettings(userId: string): Promise<UserSettings | nu
 
 export async function saveUserSettings(userId: string, settings: UserSettings): Promise<void> {
   await redis.set(KEYS.userSettings(userId), settings);
+}
+
+// ── Account-scoped ICP profile ──────────────────────────────────────────────
+
+export async function getUserIcp(userId: string): Promise<IcpProfile | null> {
+  return redis.get<IcpProfile>(KEYS.userIcp(userId));
+}
+
+export async function saveUserIcp(userId: string, profile: IcpProfile): Promise<void> {
+  await redis.set(KEYS.userIcp(userId), profile);
 }

@@ -1,12 +1,29 @@
 "use client";
 
-import type { ProspectRecord } from "@/types";
+import type { ProspectRecord, ReplyStatus } from "@/types";
 
 interface Props {
   prospects: ProspectRecord[];
+  onUpdateReply?: (id: string, status: ReplyStatus | null) => void;
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+const REPLY_OPTIONS: { value: ReplyStatus | ""; label: string }[] = [
+  { value: "", label: "No reply yet" },
+  { value: "positive", label: "Positive" },
+  { value: "neutral", label: "Neutral" },
+  { value: "negative", label: "Negative" },
+  { value: "bounced", label: "Bounced" },
+];
+
+const REPLY_PILL_CLS: Record<string, string> = {
+  positive: "border-emerald-400/40 bg-[rgba(16,185,129,0.08)] text-emerald-500",
+  neutral: "border-amber-400/40 bg-[rgba(251,191,36,0.08)] text-amber-500",
+  negative: "border-red-400/40 bg-[rgba(239,68,68,0.08)] text-red-500",
+  bounced: "border-[var(--input-border)] bg-[var(--input-bg)] text-ink-3",
+  "": "border-[var(--input-border)] bg-[var(--input-bg)] text-ink-4",
+};
 
 function isUnopened(p: ProspectRecord): boolean {
   return p.lpVisits.length === 0 && Date.now() - new Date(p.contactedAt).getTime() > SEVEN_DAYS_MS;
@@ -34,7 +51,7 @@ function ScorePill({ score }: { score: number }) {
   );
 }
 
-export default function HistoryTable({ prospects }: Props) {
+export default function HistoryTable({ prospects, onUpdateReply }: Props) {
   if (prospects.length === 0) {
     return (
       <div className="rounded-2xl border border-mist bg-[var(--surface)] shadow-card py-16 text-center">
@@ -54,7 +71,7 @@ export default function HistoryTable({ prospects }: Props) {
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-mist bg-[var(--input-bg)]">
-            {["Prospect", "Subject used", "Scores", "LP status", "Date", ""].map((h) => (
+            {["Prospect", "Subject used", "Scores", "LP status", "Reply", "Date", ""].map((h) => (
               <th
                 key={h}
                 className="px-4 py-3 text-left text-[10px] font-semibold text-ink-3 uppercase tracking-[0.08em]"
@@ -113,6 +130,19 @@ export default function HistoryTable({ prospects }: Props) {
                   ) : (
                     <span className="text-[11px] text-ink-4">No visits yet</span>
                   )}
+                </td>
+
+                <td className="px-4 py-3">
+                  <select
+                    value={p.replyStatus ?? ""}
+                    onChange={(e) => onUpdateReply?.(p.id, (e.target.value || null) as ReplyStatus | null)}
+                    disabled={!onUpdateReply}
+                    className={`text-[11px] font-medium rounded-lg border px-2 py-1 focus:outline-none focus:border-brand-400 transition-all ${REPLY_PILL_CLS[p.replyStatus ?? ""]}`}
+                  >
+                    {REPLY_OPTIONS.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
                 </td>
 
                 <td className="px-4 py-3 text-xs text-ink-3 whitespace-nowrap">

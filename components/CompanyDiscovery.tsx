@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { IcpProfile } from "@/types";
 
 interface DiscoveredCompany {
   name: string;
@@ -10,6 +11,8 @@ interface DiscoveredCompany {
 
 interface Props {
   onAdd: (companies: string[]) => void;
+  icpProfile?: IcpProfile;
+  onSaveIcpProfile?: (patch: Partial<IcpProfile>) => void;
 }
 
 type DiscoverTab = "icp" | "filters" | "csv";
@@ -23,20 +26,30 @@ const RESULT_COUNTS = [10, 20, 50, 100];
 const INPUT = "w-full bg-[var(--input-bg)] border border-[var(--input-border)] rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder-ink-4 focus:outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-50 transition-all";
 const BTN   = "px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all shadow-signal-sm hover:shadow-signal disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none";
 
-export default function CompanyDiscovery({ onAdd }: Props) {
+export default function CompanyDiscovery({ onAdd, icpProfile, onSaveIcpProfile }: Props) {
   const [tab, setTab] = useState<DiscoverTab>("icp");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DiscoveredCompany[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [icpDescription, setIcpDescription] = useState("");
-  const [filters, setFilters] = useState({ industry: "", size: "", location: "", funding: "", keywords: "" });
+  const [filters, setFilters] = useState({ industry: "", size: "", location: "", funding: "", keywords: "", lookalikeDomains: "" });
   const [count, setCount] = useState(20);
   const [addedNames, setAddedNames] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
   const [csvCompanies, setCsvCompanies] = useState<string[]>([]);
   const [csvPreview, setCsvPreview] = useState<string[][]>([]);
   const [csvCol, setCsvCol] = useState(0);
+  const [seededFromProfile, setSeededFromProfile] = useState(false);
+
+  // Load the saved ICP profile once (on first arrival, or first login) — don't clobber
+  // whatever the user is actively typing on later re-renders.
+  useEffect(() => {
+    if (seededFromProfile || !icpProfile?.updatedAt) return;
+    setIcpDescription(icpProfile.description);
+    setFilters(icpProfile.filters);
+    setSeededFromProfile(true);
+  }, [icpProfile, seededFromProfile]);
 
   function tabCls(active: boolean) {
     return `px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
@@ -63,6 +76,7 @@ export default function CompanyDiscovery({ onAdd }: Props) {
     setError(null);
     setResults([]);
     setSelected(new Set());
+    onSaveIcpProfile?.({ description: icpDescription, filters });
     const exclude = Array.from(addedNames);
     const body = tab === "icp"
       ? { mode: "icp", description: icpDescription, count, exclude }
@@ -198,6 +212,9 @@ export default function CompanyDiscovery({ onAdd }: Props) {
         <div className="space-y-3">
           <p className="text-xs text-ink-3 leading-relaxed">
             Describe what you sell and who buys it — we&apos;ll find companies that match.
+            {icpProfile?.updatedAt && (
+              <span className="text-ink-4"> Saved from your last search — edit and re-run anytime.</span>
+            )}
           </p>
           <textarea
             className={INPUT + " resize-none"}
@@ -232,6 +249,16 @@ export default function CompanyDiscovery({ onAdd }: Props) {
               value={filters.keywords}
               onChange={(e) => setFilters((f) => ({ ...f, keywords: e.target.value }))}
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-2 mb-1.5">Find companies like these (optional)</label>
+            <input
+              className={INPUT}
+              placeholder="e.g. stripe.com, ramp.com — up to 5 domains, comma-separated"
+              value={filters.lookalikeDomains}
+              onChange={(e) => setFilters((f) => ({ ...f, lookalikeDomains: e.target.value }))}
+            />
+            <p className="text-[10px] text-ink-4 mt-1">Give a few of your best-fit customers and we&apos;ll find companies that look like them.</p>
           </div>
           <button
             onClick={runDiscover}

@@ -17,6 +17,7 @@ import PeoplePicker from "@/components/PeoplePicker";
 import CompanyDiscovery from "@/components/CompanyDiscovery";
 import SettingsBar from "@/components/SettingsBar";
 import { useSettings } from "@/hooks/useSettings";
+import { useIcpProfile } from "@/hooks/useIcpProfile";
 import { useAuth } from "@/hooks/useAuth";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { getDeviceId } from "@/lib/deviceId";
@@ -80,7 +81,12 @@ interface AppState {
   crmStatus: PushStatus;
   error: string | null;
   regenerating: boolean;
+  emailVariants: string[];
+  selectedVariantIdx: number;
+  generatingVariant: boolean;
 }
+
+const MAX_EMAIL_VARIANTS = 3;
 
 const INITIAL: AppState = {
   stage: "idle", lookupCompany: "", people: [], prospect: null,
@@ -88,6 +94,7 @@ const INITIAL: AppState = {
   selectedSignals: [], generation: null, editedEmailBody: "",
   editedLpContent: null, selectedSubjectIdx: 0, lpUrl: "", lpSlug: "",
   instantlyStatus: "idle", slackStatus: "idle", crmStatus: "idle", error: null, regenerating: false,
+  emailVariants: [], selectedVariantIdx: 0, generatingVariant: false,
 };
 
 const ROLE_LABELS: Record<TargetRole, string> = {
@@ -291,6 +298,7 @@ function BulkSection({
   settings: { senderCompany: string; senderName: string; defaultCtaUrl: string };
   userId?: string;
 }) {
+  const { profile: icpProfile, save: saveIcpProfile } = useIcpProfile(userId);
   const [options, setOptions] = useState<BulkOptions>({
     targetRole: "decision-maker",
     autoPush: true,
@@ -460,6 +468,8 @@ function BulkSection({
 
           {/* Discovery */}
           <CompanyDiscovery
+            icpProfile={icpProfile}
+            onSaveIcpProfile={saveIcpProfile}
             onAdd={(companies) =>
               setInput((prev) => {
                 const existing = prev.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -693,7 +703,7 @@ export default function HomePage() {
         prospectName: prospect.name, company: prospect.company, content: result.landingPageContent,
       });
       const emailBody = result.emailBody.replace(/\[LP_URL\]/g, lpUrl);
-      update({ stage: "review", generation: { ...result, emailBody }, editedEmailBody: emailBody, editedLpContent: result.landingPageContent, selectedSubjectIdx: 0, lpUrl, lpSlug: slug });
+      update({ stage: "review", generation: { ...result, emailBody }, editedEmailBody: emailBody, editedLpContent: result.landingPageContent, selectedSubjectIdx: 0, lpUrl, lpSlug: slug, emailVariants: [emailBody], selectedVariantIdx: 0 });
     } catch (err) {
       update({ stage: "signal-picker", error: err instanceof Error ? err.message : "Generation failed" });
     }
@@ -714,9 +724,40 @@ export default function HomePage() {
         slug: lpSlug, content: result.landingPageContent,
       });
       const emailBody = result.emailBody.replace(/\[LP_URL\]/g, lpUrl);
-      update({ generation: { ...result, emailBody }, editedEmailBody: emailBody, editedLpContent: result.landingPageContent, selectedSubjectIdx: 0, lpUrl, regenerating: false });
+      update({ generation: { ...result, emailBody }, editedEmailBody: emailBody, editedLpContent: result.landingPageContent, selectedSubjectIdx: 0, lpUrl, regenerating: false, emailVariants: [emailBody], selectedVariantIdx: 0 });
     } catch (err) {
       update({ regenerating: false, error: err instanceof Error ? err.message : "Regeneration failed" });
+    }
+  }
+
+  // Saves any hand-edits on the currently active variant, then switches which one is shown.
+  function handleSelectVariant(idx: number) {
+    const { emailVariants, selectedVariantIdx, editedEmailBody } = state;
+    if (idx === selectedVariantIdx) return;
+    const nextVariants = [...emailVariants];
+    nextVariants[selectedVariantIdx] = editedEmailBody;
+    update({ emailVariants: nextVariants, selectedVariantIdx: idx, editedEmailBody: nextVariants[idx] });
+  }
+
+  async function handleGenerateVariant() {
+    const { prospect, selectedSignals, editedEmailBody, emailVariants, selectedVariantIdx } = state;
+    if (!prospect || emailVariants.length >= MAX_EMAIL_VARIANTS) return;
+    update({ generatingVariant: true, error: null });
+    try {
+      const { emailBody } = await apiFetch<{ emailBody: string }>("/api/generate/variant", {
+        prospect, signals: selectedSignals,
+        senderCompany: settings.senderCompany,
+        senderName: settings.senderName,
+        defaultCtaUrl: settings.defaultCtaUrl,
+        previousBody: editedEmailBody,
+      });
+      const withLp = emailBody.replace(/\[LP_URL\]/g, state.lpUrl);
+      const nextVariants = [...emailVariants];
+      nextVariants[selectedVariantIdx] = editedEmailBody; // preserve any edits on the outgoing variant
+      nextVariants.push(withLp);
+      update({ emailVariants: nextVariants, selectedVariantIdx: nextVariants.length - 1, editedEmailBody: withLp, generatingVariant: false });
+    } catch (err) {
+      update({ generatingVariant: false, error: err instanceof Error ? err.message : "Variant generation failed" });
     }
   }
 
@@ -1125,6 +1166,12 @@ export default function HomePage() {
                       lpUrl={lpUrl}
                       onRegenerate={handleRegenerate}
                       regenerating={regenerating}
+                      emailVariants={state.emailVariants}
+                      selectedVariantIdx={state.selectedVariantIdx}
+                      onSelectVariant={handleSelectVariant}
+                      onGenerateVariant={handleGenerateVariant}
+                      generatingVariant={state.generatingVariant}
+                      maxVariants={MAX_EMAIL_VARIANTS}
                     />
                   </div>
 

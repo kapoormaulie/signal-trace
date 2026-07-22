@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
 import { findEmailViaHunter } from "@/lib/hunter";
+import { findEmailViaFindymail } from "@/lib/findymail";
+import { findEmailViaAiArk } from "@/lib/aiark";
 import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
 import { log } from "@/lib/logger";
 
 interface EmailResult {
   email: string;
-  source: "fullenrich" | "aiark" | "hunter" | "apollo" | "exa" | "unknown";
+  source: "fullenrich" | "aiark" | "hunter" | "findymail" | "apollo" | "exa" | "unknown";
   confidence: number;
   verified: boolean;
 }
@@ -126,6 +128,27 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // PRIORITY 1.5: Findymail (synchronous, name+domain lookup)
+        if (!emailResult && process.env.FINDYMAIL_API_KEY) {
+          log(`people-lookup | trying Findymail for ${person.name}...`);
+          const findymailEmail = await findEmailViaFindymail(person.name, company).catch((err) => {
+            log(`people-lookup | Findymail error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
+          if (findymailEmail && isValidCompanyEmail(findymailEmail, company)) {
+            emailResult = {
+              email: findymailEmail,
+              source: "findymail",
+              confidence: 88,
+              verified: true,
+            };
+            emailSources.push(emailResult);
+            log(`people-lookup | ✓ Findymail found: ${findymailEmail}`);
+          } else {
+            log(`people-lookup | ✗ Findymail no result`);
+          }
+        }
+
         // PRIORITY 2: FullEnrich (most accurate if available)
         if (process.env.FULLENRICH_API_KEY) {
           log(`people-lookup | trying FullEnrich for ${person.name}...`);
@@ -195,65 +218,25 @@ export async function POST(req: NextRequest) {
           log(`people-lookup | ✓ FullEnrich found: ${emailResult.email}`);
         }
 
-        // PRIORITY 3: AI Ark
+        // PRIORITY 3: AI Ark (export-single by LinkedIn URL when available, else search-then-export)
         if (!emailResult && process.env.AIARK_API_KEY) {
           log(`people-lookup | trying AI Ark for ${person.name}...`);
-          try {
-            const response = await fetch("https://api.aiark.com/v1/person", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-API-Key": process.env.AIARK_API_KEY,
-              },
-              body: JSON.stringify({
-                first_name: firstName,
-                last_name: lastName,
-                company: company,
-                linkedin_profile_url: person.linkedinUrl,
-              }),
-            });
-
-            log(`people-lookup | AI Ark response status: ${response.status}`);
-
-            if (response.ok) {
-              const data = (await response.json()) as {
-                email?: string;
-                emails?: Array<{ email: string; confidence?: number }>;
-              };
-
-              if (data.email) {
-                emailResult = {
-                  email: data.email,
-                  source: "aiark",
-                  confidence: 92,
-                  verified: true,
-                };
-                emailSources.push(emailResult);
-              } else if (data.emails && data.emails.length > 0) {
-                const best = data.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
-                if (best) {
-                  emailResult = {
-                    email: best.email,
-                    source: "aiark",
-                    confidence: Math.round((best.confidence || 0.9) * 100),
-                    verified: true,
-                  };
-                  emailSources.push(emailResult);
-                }
-              } else {
-                log(`people-lookup | AI Ark returned 200 but no email found`);
-              }
-            } else {
-              const errorText = await response.text().catch(() => "");
-              log(`people-lookup | AI Ark error ${response.status}: ${errorText.slice(0, 200)}`);
-            }
-          } catch (err) {
+          const aiArkEmail = await findEmailViaAiArk(person.name, company, person.linkedinUrl).catch((err) => {
             log(`people-lookup | AI Ark error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
+          if (aiArkEmail) {
+            emailResult = {
+              email: aiArkEmail,
+              source: "aiark",
+              confidence: 92,
+              verified: true,
+            };
+            emailSources.push(emailResult);
+            log(`people-lookup | ✓ AI Ark found: ${aiArkEmail}`);
+          } else {
+            log(`people-lookup | ✗ AI Ark no result`);
           }
-        }
-
-        if (emailResult) {
-          log(`people-lookup | ✓ AI Ark found: ${emailResult.email}`);
         }
 
         // PRIORITY 4: Hunter.io
@@ -327,7 +310,7 @@ export async function POST(req: NextRequest) {
         // Validate email matches company domain (but trust verified sources)
         if (emailResult) {
           const isValid = isValidCompanyEmail(emailResult.email, company);
-          const isVerifiedSource = ["fullenrich", "aiark", "hunter", "apollo"].includes(emailResult.source);
+          const isVerifiedSource = ["fullenrich", "aiark", "hunter", "findymail", "apollo"].includes(emailResult.source);
 
           if (!isValid && !isVerifiedSource) {
             // Unverified source + domain mismatch = reject

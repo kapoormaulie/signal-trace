@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchCompanySignals, fetchPersonSignals } from "@/lib/exa";
+import { fetchCompanySignals, fetchPersonSignals, findPersonLinkedInUrl } from "@/lib/exa";
 import { getAllProspects, getCompanyData, saveCompanyData } from "@/lib/redis";
 import { findFuzzyDuplicate } from "@/lib/fuzzy";
 import { log } from "@/lib/logger";
@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Duplicate check + Exa calls + logo signal run in parallel to keep latency low
-  // Note: We fetch person signals even without LinkedIn URL as a fallback
-  const [history, companySignals, personSignalsLinked, personSignalsFallback, logoData] = await Promise.allSettled([
+  // Note: If no LinkedIn URL is provided, we'll search for it based on name + company
+  const [history, companySignals, personSignalsLinked, logoData, personSignalsFallback] = await Promise.allSettled([
     getAllProspects(),
     fetchCompanySignals(company).catch((err) => {
       log(`Exa company signals error for "${company}": ${err instanceof Error ? err.message : String(err)}`);
@@ -51,14 +51,26 @@ export async function POST(req: NextRequest) {
           return [] as Signal[];
         })
       : Promise.resolve([] as Signal[]),
-    // Fallback: search for person signals by name at company
-    name && company
-      ? fetchPersonSignals(`https://linkedin.com/search/results/people/?keywords=${encodeURIComponent(name + " " + company)}`).catch(() => [] as Signal[])
-      : Promise.resolve([] as Signal[]),
     processLogoSignal(company, domain).catch((err) => {
       log(`Logo signal error for "${domain}": ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }),
+    // Fallback: if no LinkedIn URL, find person's profile and get signals
+    !linkedinUrl && name && company
+      ? (async () => {
+          try {
+            const foundUrl = await findPersonLinkedInUrl(name, company);
+            if (foundUrl) {
+              log(`Found LinkedIn profile for "${name}": ${foundUrl}`);
+              return await fetchPersonSignals(foundUrl);
+            }
+            return [] as Signal[];
+          } catch (err) {
+            log(`Fallback person signals error: ${err instanceof Error ? err.message : String(err)}`);
+            return [] as Signal[];
+          }
+        })()
+      : Promise.resolve([] as Signal[]),
   ]);
 
   // Fuzzy duplicate check
