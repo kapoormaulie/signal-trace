@@ -399,6 +399,24 @@ async function searchPeopleApollo(company: string): Promise<PersonResult[]> {
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const EMAIL_BLOCKLIST = ["example.com", "sentry.io", "wixpress.com", "cloudflare.com",
   "google.com", "microsoft.com", "apple.com", "w3.org", "schema.org"];
+// Generic role mailboxes — never the specific person we're searching for.
+const GENERIC_LOCAL_PARTS = new Set([
+  "info", "contact", "support", "hello", "admin", "sales", "help", "press", "media",
+  "careers", "jobs", "privacy", "legal", "security", "abuse", "noreply", "no-reply",
+  "webmaster", "example", "test", "sample", "yourname", "firstname.lastname",
+  "john.doe", "jane.doe", "name.surname", "first.last",
+]);
+
+// Rejects masked/placeholder emails scraped from web copy (e.g. "ixxxxxx@company.com"
+// shown as a format example on some page) — 3+ identical characters in a row in the
+// local part is not a pattern real email addresses have.
+function isPlausibleEmail(email: string): boolean {
+  const local = email.split("@")[0]?.toLowerCase() ?? "";
+  if (!local) return false;
+  if (/(.)\1{2,}/.test(local)) return false;
+  if (GENERIC_LOCAL_PARTS.has(local)) return false;
+  return true;
+}
 
 function extractBestEmail(texts: string[], firstName: string, company: string): string | null {
   const firstPart = firstName.toLowerCase().slice(0, 4);
@@ -410,6 +428,7 @@ function extractBestEmail(texts: string[], firstName: string, company: string): 
     for (const email of found) {
       const lower = email.toLowerCase();
       if (EMAIL_BLOCKLIST.some((d) => lower.includes(d))) continue;
+      if (!isPlausibleEmail(email)) continue;
       if (lower.includes(firstPart) || lower.includes(companyPart)) {
         candidates.unshift(email); // high confidence — name or company in email
       } else {
@@ -420,110 +439,16 @@ function extractBestEmail(texts: string[], firstName: string, company: string): 
   return candidates[0] ?? null;
 }
 
-// FullEnrich API integration for accurate email enrichment
-async function enrichEmailWithFullEnrich(
-  firstName: string,
-  lastName: string,
-  company: string,
-  linkedinUrl?: string
-): Promise<string | null> {
-  if (!process.env.FULLENRICH_API_KEY) return null;
-
-  try {
-    const response = await fetch("https://api.fullenrich.com/v1/person/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.FULLENRICH_API_KEY}`,
-      },
-      body: JSON.stringify({
-        first_name: firstName,
-        last_name: lastName,
-        company_name: company,
-        linkedin_url: linkedinUrl,
-      }),
-    });
-
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as {
-      data?: {
-        email?: string;
-        emails?: Array<{ email: string; confidence: number }>;
-      };
-    };
-
-    // Return highest confidence email
-    if (data.data?.email) return data.data.email;
-    if (data.data?.emails && data.data.emails.length > 0) {
-      const best = data.data.emails.sort((a, b) => b.confidence - a.confidence)[0];
-      return best?.email || null;
-    }
-
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
-// AI Ark API integration for email enrichment
-async function enrichEmailWithAiArk(
-  firstName: string,
-  lastName: string,
-  company: string,
-  linkedinUrl?: string
-): Promise<string | null> {
-  if (!process.env.AIARK_API_KEY) return null;
-
-  try {
-    const response = await fetch("https://api.aiark.com/v1/person", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": process.env.AIARK_API_KEY,
-      },
-      body: JSON.stringify({
-        first_name: firstName,
-        last_name: lastName,
-        company: company,
-        linkedin_profile_url: linkedinUrl,
-      }),
-    });
-
-    if (!response.ok) return null;
-
-    const data = (await response.json()) as {
-      email?: string;
-      emails?: Array<{ email: string; confidence?: number }>;
-    };
-
-    // Return best email
-    if (data.email) return data.email;
-    if (data.emails && data.emails.length > 0) {
-      const best = data.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
-      return best?.email || null;
-    }
-
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
 export async function findPersonEmail(
   firstName: string,
   lastName: string,
   company: string,
   linkedinUrl?: string
 ): Promise<string | null> {
-  // STRATEGY 1: Try multiple high-confidence sources in parallel first
-  const [fullEnrichEmail, aiArkEmail] = await Promise.all([
-    enrichEmailWithFullEnrich(firstName, lastName, company, linkedinUrl),
-    enrichEmailWithAiArk(firstName, lastName, company, linkedinUrl),
-  ]);
-
-  if (fullEnrichEmail) return fullEnrichEmail;
-  if (aiArkEmail) return aiArkEmail;
+  // Note: FullEnrich and AI Ark are already tried, correctly, earlier in the
+  // /api/people waterfall (lib/fullenrich.ts, lib/aiark.ts) before this function
+  // is ever reached — this used to duplicate that work against wrong/nonexistent
+  // hosts (api.fullenrich.com, api.aiark.com) and always failed silently. Removed.
 
   // STRATEGY 2: Web search for email (Exa + manual extraction)
   const queries = [
