@@ -399,12 +399,14 @@ async function searchPeopleApollo(company: string): Promise<PersonResult[]> {
 const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const EMAIL_BLOCKLIST = ["example.com", "sentry.io", "wixpress.com", "cloudflare.com",
   "google.com", "microsoft.com", "apple.com", "w3.org", "schema.org"];
-// Generic role mailboxes — never the specific person we're searching for.
+// Generic role mailboxes and placeholder names — never the specific person we're
+// searching for, but common in scraped "e.g. john.doe@company.com" format examples.
 const GENERIC_LOCAL_PARTS = new Set([
   "info", "contact", "support", "hello", "admin", "sales", "help", "press", "media",
   "careers", "jobs", "privacy", "legal", "security", "abuse", "noreply", "no-reply",
   "webmaster", "example", "test", "sample", "yourname", "firstname.lastname",
-  "john.doe", "jane.doe", "name.surname", "first.last",
+  "john.doe", "jane.doe", "name.surname", "first.last", "john", "jane", "doe",
+  "johndoe", "janedoe", "j.doe", "j.smith", "smith",
 ]);
 
 // Rejects masked/placeholder emails scraped from web copy (e.g. "ixxxxxx@company.com"
@@ -418,22 +420,27 @@ function isPlausibleEmail(email: string): boolean {
   return true;
 }
 
-function extractBestEmail(texts: string[], firstName: string, company: string): string | null {
-  const firstPart = firstName.toLowerCase().slice(0, 4);
-  const companyPart = company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 6);
+function extractBestEmail(texts: string[], firstName: string, lastName: string): string | null {
+  const firstPart = firstName.toLowerCase().slice(0, 3);
+  const lastPart = lastName.toLowerCase().slice(0, 3);
   const candidates: string[] = [];
 
   for (const text of texts) {
     const found = text.match(EMAIL_RE) ?? [];
     for (const email of found) {
       const lower = email.toLowerCase();
+      const local = lower.split("@")[0] ?? "";
       if (EMAIL_BLOCKLIST.some((d) => lower.includes(d))) continue;
       if (!isPlausibleEmail(email)) continue;
-      if (lower.includes(firstPart) || lower.includes(companyPart)) {
-        candidates.unshift(email); // high confidence — name or company in email
-      } else {
-        candidates.push(email);
-      }
+      // Require the local part to actually relate to THIS person's name — a matching
+      // company domain alone isn't distinguishing evidence, every real employee's
+      // email matches the domain too. This is what let scraped placeholders like
+      // "doe@stripe.com" (a format example, not a real person) through before.
+      const nameMatches =
+        (firstPart.length >= 2 && local.includes(firstPart)) ||
+        (lastPart.length >= 2 && local.includes(lastPart));
+      if (!nameMatches) continue;
+      candidates.push(email);
     }
   }
   return candidates[0] ?? null;
@@ -489,7 +496,7 @@ export async function findPersonEmail(
   if (hunterEmail) return hunterEmail;
 
   // STRATEGY 5: Extract from web search results
-  const webEmail = extractBestEmail(texts, firstName, company);
+  const webEmail = extractBestEmail(texts, firstName, lastName);
   if (webEmail) return webEmail;
 
   return null;
