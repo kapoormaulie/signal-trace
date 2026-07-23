@@ -49,6 +49,36 @@ function parseLinkedInTitle(title: string): string {
   return (parts[1] ?? "").replace(/\s*\|.*$/, "").trim();
 }
 
+// Organization/entity words that make a "Firstname Lastname"-shaped regex match
+// a false positive — "Capital One" satisfies /^[A-Z][a-z]+ [A-Z][a-z]+/ just as
+// well as an actual person's name does.
+const ORG_WORDS = new Set([
+  "capital", "group", "partners", "fund", "ventures", "holdings", "bank",
+  "inc", "llc", "corp", "corporation", "company", "team", "board", "portfolio",
+  "investment", "investments", "profile", "overview", "llp", "ltd",
+  "technologies", "solutions", "enterprises", "labs", "global", "worldwide",
+]);
+
+// Catches non-person titles slipping through as a "name" — a page title with
+// no dash/pipe delimiter (so the whole thing gets treated as one name), an
+// organization name that happens to look like "Firstname Lastname", etc.
+function isPlausiblePersonName(name: string): boolean {
+  const trimmed = name.trim();
+  if (trimmed.length < 3 || trimmed.length > 40) return false;
+  if (/[|@#/\\]/.test(trimmed)) return false;
+  const words = trimmed.split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  if (words.some((w) => ORG_WORDS.has(w.toLowerCase().replace(/[.,]/g, "")))) return false;
+  return words.every((w) => /^[A-Z][a-zA-Z'.-]*$/.test(w));
+}
+
+// Normalizes a LinkedIn URL for dedup — protocol, trailing slash, and case
+// variations were letting the same person through twice when different search
+// strategies indexed slightly different URL forms for the same profile.
+function normalizeLinkedInUrl(url: string): string {
+  return url.split("?")[0].replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
+}
+
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -308,7 +338,8 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
       // LinkedIn profiles
       if (r.url.includes("linkedin.com/in/")) {
         const linkedinUrl = r.url.split("?")[0];
-        if (seen.has(linkedinUrl)) continue;
+        const urlKey = normalizeLinkedInUrl(r.url);
+        if (seen.has(urlKey)) continue;
 
         const rawTitle = r.title ?? "";
         const roleTitle = parseLinkedInTitle(rawTitle);
@@ -320,11 +351,12 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         if (!isLikelyCurrentEmployee(`${rawTitle} ${r.summary ?? ""}`)) continue;
 
         const name = parseLinkedInName(rawTitle);
-        if (name.length < 2) continue;
+        if (name.length < 2 || seen.has(`name:${name.toLowerCase()}`)) continue;
 
         const confidence = scoreConfidence(r.url, rawTitle, r.summary ?? "", company);
 
-        seen.add(linkedinUrl);
+        seen.add(urlKey);
+        seen.add(`name:${name.toLowerCase()}`);
         people.push({
           id: r.id,
           name,
@@ -335,8 +367,10 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
           source: "linkedin",
         });
       }
-      // Crunchbase profiles
-      else if (r.url.includes("crunchbase.com")) {
+      // Crunchbase profiles — restrict to actual /person/ pages, not organization
+      // pages, which is how "Capital One" (a company) got extracted as if it
+      // were a "Firstname Lastname"-shaped person's name.
+      else if (r.url.includes("crunchbase.com/person/")) {
         const crunchId = `crunchbase:${r.id}`;
         if (seen.has(crunchId)) continue;
 
@@ -350,12 +384,13 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         if (!nameMatch) continue;
 
         const name = nameMatch[1];
-        if (seen.has(name)) continue;
+        if (!isPlausiblePersonName(name)) continue;
+        if (seen.has(`name:${name.toLowerCase()}`)) continue;
 
         const confidence = scoreConfidence(r.url, title, r.summary ?? "", company);
 
         seen.add(crunchId);
-        seen.add(name);
+        seen.add(`name:${name.toLowerCase()}`);
         people.push({
           id: r.id,
           name,
@@ -375,12 +410,12 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         if (!isLikelyCurrentEmployee(`${r.title} ${r.summary}`)) continue;
 
         const name = r.title.split(/\s*[-–—]\s*/)[0].trim();
-        if (name.length < 3 || seen.has(name)) continue;
+        if (!isPlausiblePersonName(name) || seen.has(`name:${name.toLowerCase()}`)) continue;
 
         const confidence = scoreConfidence(r.url, r.title, r.summary, company);
 
         seen.add(personId);
-        seen.add(name);
+        seen.add(`name:${name.toLowerCase()}`);
         people.push({
           id: r.id,
           name,
