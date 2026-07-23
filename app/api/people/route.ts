@@ -4,12 +4,13 @@ import { matchPersonInApollo } from "@/lib/apollo";
 import { findEmailViaHunter, verifyEmailViaHunter } from "@/lib/hunter";
 import { findEmailViaFindymail } from "@/lib/findymail";
 import { findEmailViaAiArk } from "@/lib/aiark";
+import { findEmailViaApify } from "@/lib/apify";
 import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
 import { log } from "@/lib/logger";
 
 interface EmailResult {
   email: string;
-  source: "fullenrich" | "aiark" | "hunter" | "findymail" | "apollo" | "exa" | "unknown";
+  source: "fullenrich" | "aiark" | "hunter" | "findymail" | "apify" | "apollo" | "exa" | "unknown";
   confidence: number;
   verified: boolean;
 }
@@ -176,6 +177,28 @@ export async function POST(req: NextRequest) {
             log(`people-lookup | ✓ AI Ark found: ${aiArkEmail}`);
           } else {
             log(`people-lookup | ✗ AI Ark no result`);
+          }
+        }
+
+        // PRIORITY 3.5: Apify (automation-lab/email-finder actor — website/GitHub/Gravatar
+        // waterfall; rejects pure pattern-guesses internally, Hunter-verifies the rest)
+        if (!emailResult && process.env.APIFY_API_KEY) {
+          log(`people-lookup | trying Apify for ${person.name}...`);
+          const apifyMatch = await findEmailViaApify(firstName, lastName, company).catch((err) => {
+            log(`people-lookup | Apify error: ${err instanceof Error ? err.message : String(err)}`);
+            return null;
+          });
+          if (apifyMatch && isValidCompanyEmail(apifyMatch.email, company)) {
+            emailResult = {
+              email: apifyMatch.email,
+              source: "apify",
+              confidence: apifyMatch.verified ? 80 : 60,
+              verified: apifyMatch.verified,
+            };
+            emailSources.push(emailResult);
+            log(`people-lookup | ✓ Apify found: ${apifyMatch.email}${apifyMatch.verified ? " (verified)" : ""}`);
+          } else {
+            log(`people-lookup | ✗ Apify no result`);
           }
         }
 
