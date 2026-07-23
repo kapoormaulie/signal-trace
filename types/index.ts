@@ -106,6 +106,9 @@ export interface PersonResult {
   email?: string;
   confidence?: number; // 0-100, accuracy of this person's data
   source?: "linkedin" | "apollo" | "crunchbase" | "angel" | "news"; // where we found them
+  emailSource?: "fullenrich" | "aiark" | "hunter" | "findymail" | "apollo" | "exa";
+  emailConfidence?: number; // 0-100, confidence in the email specifically (vs. `confidence` above, which is about the person match)
+  emailVerified?: boolean;
 }
 
 export type RunStage =

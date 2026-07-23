@@ -57,7 +57,21 @@ export default function PeoplePicker({ company, people, onSelect, onBack }: Prop
                 </p>
                 <p className="text-xs text-ink-3 mt-0.5 leading-snug">{p.title}</p>
                 {p.email ? (
-                  <p className="text-[11px] text-emerald-600 font-medium mt-1">{p.email}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <p className="text-[11px] text-emerald-600 font-medium">{p.email}</p>
+                    {p.emailVerified ? (
+                      <span className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[rgba(16,185,129,0.1)] text-emerald-600 border border-emerald-400/30">
+                        ✓ Verified
+                      </span>
+                    ) : (
+                      <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-[rgba(251,191,36,0.1)] text-amber-500 border border-amber-400/30">
+                        Unverified
+                      </span>
+                    )}
+                    {typeof p.emailConfidence === "number" && (
+                      <span className="text-[10px] text-ink-4">{p.emailConfidence}%</span>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-[11px] text-ink-4 mt-1">email not found</p>
                 )}
