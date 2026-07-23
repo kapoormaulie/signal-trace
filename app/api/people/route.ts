@@ -149,74 +149,14 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // PRIORITY 2: FullEnrich (most accurate if available)
-        if (process.env.FULLENRICH_API_KEY) {
-          log(`people-lookup | trying FullEnrich for ${person.name}...`);
-          try {
-            const response = await fetch("https://app.fullenrich.com/api/v2/people/search", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.FULLENRICH_API_KEY}`,
-              },
-              body: JSON.stringify({
-                people: [{
-                  first_name: firstName,
-                  last_name: lastName,
-                }],
-                company_filters: {
-                  names: [company],
-                },
-              }),
-            });
-
-            log(`people-lookup | FullEnrich response status: ${response.status}`);
-
-            if (response.ok) {
-              const data = (await response.json()) as {
-                people?: Array<{
-                  email?: string;
-                  emails?: Array<{ email: string; confidence?: number }>;
-                }>;
-              };
-
-              if (data.people && data.people.length > 0) {
-                const match = data.people[0];
-                if (match?.email) {
-                  emailResult = {
-                    email: match.email,
-                    source: "fullenrich",
-                    confidence: 95,
-                    verified: true,
-                  };
-                  emailSources.push(emailResult);
-                } else if (match?.emails && match.emails.length > 0) {
-                  const best = match.emails.sort((a, b) => (b.confidence || 0) - (a.confidence || 0))[0];
-                  if (best) {
-                    emailResult = {
-                      email: best.email,
-                      source: "fullenrich",
-                      confidence: Math.round((best.confidence || 0.95) * 100),
-                      verified: true,
-                    };
-                    emailSources.push(emailResult);
-                  }
-                }
-              } else {
-                log(`people-lookup | FullEnrich returned 200 but no people found`);
-              }
-            } else {
-              const errorText = await response.text().catch(() => "");
-              log(`people-lookup | FullEnrich error ${response.status}: ${errorText.slice(0, 200)}`);
-            }
-          } catch (err) {
-            log(`people-lookup | FullEnrich error: ${err instanceof Error ? err.message : String(err)}`);
-          }
-        }
-
-        if (emailResult) {
-          log(`people-lookup | ✓ FullEnrich found: ${emailResult.email}`);
-        }
+        // Note: FullEnrich has no synchronous way to return an email for a named
+        // person — their /people/search endpoint (used here previously) returns
+        // profile/employment data only, never an email; real-time single-person
+        // email enrichment is async-only per their own docs. That's already
+        // handled correctly below (PRIORITY 0's cache check + the enrichmentQueue
+        // fallback at the end of this function). A sync attempt here always 400s
+        // and was removed rather than "fixed" — there's no synchronous version of
+        // what it was trying to do.
 
         // PRIORITY 3: AI Ark (export-single by LinkedIn URL when available, else search-then-export)
         if (!emailResult && process.env.AIARK_API_KEY) {
