@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPeopleAtCompany, findPersonEmail } from "@/lib/exa";
 import { matchPersonInApollo } from "@/lib/apollo";
-import { findEmailViaHunter } from "@/lib/hunter";
+import { findEmailViaHunter, verifyEmailViaHunter } from "@/lib/hunter";
 import { findEmailViaFindymail } from "@/lib/findymail";
 import { findEmailViaAiArk } from "@/lib/aiark";
 import { checkEnrichedEmail, requestFullEnrichBulk } from "@/lib/fullenrich";
@@ -210,14 +210,24 @@ export async function POST(req: NextRequest) {
           if (exaEmail) {
             // Validate email domain matches company (Exa is unverified, so stricter check)
             if (isValidCompanyEmail(exaEmail, company)) {
-              emailResult = {
-                email: exaEmail,
-                source: "exa",
-                confidence: 65,
-                verified: false,
-              };
-              emailSources.push(emailResult);
-              log(`people-lookup | ✓ Exa found: ${exaEmail}`);
+              // Exa is scraped web text, not a verified source — run it through
+              // Hunter's real SMTP/deliverability check before trusting it. This
+              // can upgrade it to genuinely verified, or catch a bad extraction
+              // Hunter can see is undeliverable that the earlier text-based
+              // checks couldn't.
+              const hunterCheck = await verifyEmailViaHunter(exaEmail).catch(() => null);
+              if (hunterCheck === false) {
+                log(`people-lookup | ✗ Exa email rejected by Hunter verification: ${exaEmail}`);
+              } else {
+                emailResult = {
+                  email: exaEmail,
+                  source: "exa",
+                  confidence: hunterCheck === true ? 78 : 65,
+                  verified: hunterCheck === true,
+                };
+                emailSources.push(emailResult);
+                log(`people-lookup | ✓ Exa found: ${exaEmail}${hunterCheck === true ? " (Hunter-verified)" : ""}`);
+              }
             } else {
               log(`people-lookup | ✗ Exa email rejected (domain mismatch): ${exaEmail} for ${company}`);
             }
