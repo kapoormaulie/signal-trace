@@ -49,17 +49,85 @@ function parseLinkedInTitle(title: string): string {
   return (parts[1] ?? "").replace(/\s*\|.*$/, "").trim();
 }
 
-// Verify person actually works at company (high confidence check)
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// AI-generated summaries use curly quotes ("doesn't" with U+2019) which don't
+// match a straight-apostrophe regex at all — silently defeating negation
+// detection on any contraction. Normalize before matching.
+function normalizeApostrophes(s: string): string {
+  return s.replace(/[‘’‛′]/g, "'");
+}
+
+// Negation anywhere in a sentence that also mentions the company — "Not
+// directly affiliated with Stripe", "no mention of Stripe", "doesn't work
+// there" — means the AI summary is explicitly telling us the person ISN'T
+// connected to the company.
+const NEGATION_NEARBY_RE = /\b(not|no|isn't|isnt|doesn't|doesnt|unrelated|unaffiliated|without|separate from|different from|nothing to do with)\b/i;
+
+// These summaries add redirect language when the person doesn't match — "If
+// you're specifically seeking Stripe leadership, I can summarize that
+// instead", "If you meant to identify a Stripe executive with a similar
+// name, please share more details" — with no plain negation word in the
+// sentence at all, just an implied "that's not what this is." Chasing every
+// verb variant (seeking/looking for/meant to identify/...) is unbounded, but
+// virtually all of them share one structural marker: the sentence opens with
+// "If you" as a conditional addressing the reader, not a factual claim about
+// the person. None of the genuine positive-match sentences seen do this.
+const STARTS_WITH_CONDITIONAL_RE = /^if you\b/i;
+
+// Verify person actually works at company (high confidence check).
+// Word-boundary matching — plain .includes() let "Stripes Group" pass a search
+// for "Stripe" (a substring match, not a real one), which is how an unrelated
+// VC firm's partner ended up surfaced as a Stripe employee.
+//
+// Checked per-sentence rather than a fixed character window — negation phrasing
+// varies too much in length ("There is no evidence in the provided content
+// that X has a role at Stripe" puts ~80 characters between "no" and "Stripe")
+// for any fixed window to reliably span it. A sentence is the natural unit
+// negation scope stays within, regardless of how many words it takes.
+//
+// An explicit negation found ANYWHERE overrides incidental positive mentions
+// elsewhere in the same text, rather than just being skipped — once a summary
+// has said "this page is not about Stripe," it will often go on to volunteer
+// general background knowledge about the company as bonus context (real
+// founders' names, etc.), which reads as a positive mention but has nothing
+// to do with the specific person the page is about.
 function verifyCompanyMatch(personData: string, companyName: string): boolean {
-  const lower = personData.toLowerCase();
   const companyVariations = [
     companyName.toLowerCase(),
     companyName.toLowerCase().replace(/\s+/g, ""),
     companyName.toLowerCase().split(/\s/)[0], // First word
-  ];
+  ].filter(Boolean);
 
-  // Must explicitly mention the company (not just similar words)
-  return companyVariations.some((v) => lower.includes(v));
+  const sentences = normalizeApostrophes(personData).split(/(?<=[.!?])\s+/);
+  let sawNegation = false;
+  let sawPositive = false;
+
+  for (const sentence of sentences) {
+    const lower = sentence.toLowerCase().trim();
+    const mentionsCompany = companyVariations.some((v) => new RegExp(`\\b${escapeRegExp(v)}\\b`, "i").test(lower));
+    if (!mentionsCompany) continue;
+    if (NEGATION_NEARBY_RE.test(lower) || STARTS_WITH_CONDITIONAL_RE.test(lower)) {
+      sawNegation = true;
+      continue;
+    }
+    sawPositive = true;
+  }
+
+  return sawNegation ? false : sawPositive;
+}
+
+// Language that indicates the person's relationship to the company is investor/
+// advisor/board — not an employee. Search strategies that target Crunchbase
+// "investors, board members" pages will otherwise surface these as if they
+// worked there, which is how e.g. a company's angel investor gets treated as
+// a cold-email target for that company.
+const NON_EMPLOYEE_ROLE_RE = /\b(investor|board member|board of directors|advisor|advisory board|backed by|portfolio compan)/i;
+
+function isLikelyCurrentEmployee(personData: string): boolean {
+  return !NON_EMPLOYEE_ROLE_RE.test(personData);
 }
 
 // Score confidence of person match (0-100)
@@ -242,19 +310,25 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         const linkedinUrl = r.url.split("?")[0];
         if (seen.has(linkedinUrl)) continue;
 
-        // Verify company match before adding
-        if (!verifyCompanyMatch(`${r.title ?? ""} ${r.summary ?? ""}`, company)) continue;
+        const rawTitle = r.title ?? "";
+        const roleTitle = parseLinkedInTitle(rawTitle);
+        // LinkedIn's indexed page title doesn't always include the role/company
+        // suffix (varies by profile), so check title+summary combined for recall —
+        // the word-boundary fix in verifyCompanyMatch plus the non-employee filter
+        // below are the real defense against false positives, not restricting the field.
+        if (!verifyCompanyMatch(`${rawTitle} ${r.summary ?? ""}`, company)) continue;
+        if (!isLikelyCurrentEmployee(`${rawTitle} ${r.summary ?? ""}`)) continue;
 
-        const name = parseLinkedInName(r.title ?? "");
+        const name = parseLinkedInName(rawTitle);
         if (name.length < 2) continue;
 
-        const confidence = scoreConfidence(r.url, r.title ?? "", r.summary ?? "", company);
+        const confidence = scoreConfidence(r.url, rawTitle, r.summary ?? "", company);
 
         seen.add(linkedinUrl);
         people.push({
           id: r.id,
           name,
-          title: parseLinkedInTitle(r.title ?? ""),
+          title: roleTitle,
           linkedinUrl,
           summary: r.summary as string,
           confidence,
@@ -270,6 +344,7 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         if (!title) continue;
 
         if (!verifyCompanyMatch(`${title} ${r.summary ?? ""}`, company)) continue;
+        if (!isLikelyCurrentEmployee(`${title} ${r.summary ?? ""}`)) continue;
 
         const nameMatch = title.match(/^([A-Z][a-z]+ [A-Z][a-z]+)/);
         if (!nameMatch) continue;
@@ -297,6 +372,7 @@ export async function fetchPeopleAtCompany(company: string, roleQuery?: string):
         if (seen.has(personId)) continue;
 
         if (!verifyCompanyMatch(`${r.title} ${r.summary}`, company)) continue;
+        if (!isLikelyCurrentEmployee(`${r.title} ${r.summary}`)) continue;
 
         const name = r.title.split(/\s*[-–—]\s*/)[0].trim();
         if (name.length < 3 || seen.has(name)) continue;
